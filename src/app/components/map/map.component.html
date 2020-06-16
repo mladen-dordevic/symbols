@@ -1,0 +1,144 @@
+<mat-tab-group (selectedIndexChange)="tabSwitched($event)">
+  <mat-tab label="Table">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Instructions</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p>
+          Symbols inputs a CSV file of structural data from field stations and outputs a Google Earth KML file with
+          inclined orientation symbols. 3D symbols are positioned above the Google Earth landscape based on the
+          parameters below. It is suggested that your CSV file has columns for each of the parameters below, but the
+          only columns that are required are Latitude, Longitude, and Unit/Formation.
+        </p>
+        <h4>Parameters (columns in CSV file)</h4>
+        <ul>
+          <li><b>Name for Point</b>: the title for a field location or station;
+            defaults to Unit/Formation name if not provided in CSV file
+          </li>
+          <li><b>Longitude</b>: in decimal degrees (required)
+          </li>
+          <li><b>Latitude</b>: in decimal degrees (required)
+          </li>
+          <li><b>Unit/Formation</b>: unit or formation name (required)
+          </li>
+          <li><b>Symbol Type</b>: type of symbol drawn in GE; can be bedding, foliation, lineation;
+            defaults to a dot if not provided in CSV file
+          </li>
+          <li><b>Symbol Color</b>: color of the symbol drawn in GE;
+            defaults to black if not provided in CSV file. <a href="http://html-color-names.com/color-chart.php"
+              target="_blank">Color
+              Chart</a>
+          </li>
+          <li><b>Strike or Trend</b>: direction of strike (or trend if a lineation)
+          </li>
+          <li><b>Dip or Plunge</b>: amount of dip (or plunge if a lineation)
+          </li>
+          <li><b>Dip Direction</b>: cardinal direction of the dip line (N,S,E,W),
+            right hand rule is assumed if there is no column for Dip Direction in CSV
+            file
+          </li>
+          <li><b>Notes/Observation</b>: any Notes are added to the pop-up bubble when a symbol is clicked in
+            GE
+          </li>
+        </ul>
+        <button type="button" mat-raised-button (click)="fileInput.click()">Choose File</button>
+        <input hidden #fileInput type="file" #fileImportInput (change)="fileChangeListener($event)" accept=".csv">
+      </mat-card-content>
+    </mat-card>
+    <mat-card *ngIf="csvRecords.data.length">
+      <mat-card-header>
+        <mat-card-title>Export to KML</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p>Setting for export</p>
+        <mat-form-field class="form-f">
+          <mat-label>Symbol length [m]</mat-label>
+          <input matInput type="number" min="5" max="100" step="5" [(ngModel)]="symbolLength">
+        </mat-form-field>
+        <mat-form-field class="form-f">
+          <mat-label>Symbol height [m]</mat-label>
+          <input matInput type="number" min="5" max="100" step="5" [(ngModel)]="symbolHeight">
+        </mat-form-field>
+        <mat-form-field class="form-f">
+          <mat-label>Symbol line thickness</mat-label>
+          <input matInput type="number" min="1" max="20" step="1" [(ngModel)]="lineWidth">
+        </mat-form-field>
+        <mat-form-field class="form-f">
+          <mat-label>Filename</mat-label>
+          <input matInput [(ngModel)]="fileName">
+        </mat-form-field>
+        <mat-slide-toggle [(ngModel)]="createFolders">Group symbols to folders by Unit/Formation</mat-slide-toggle>
+      </mat-card-content>
+      <mat-card-actions>
+        <button mat-button color="primary" (click)="export()">Export</button>
+      </mat-card-actions>
+    </mat-card>
+    <mat-card *ngIf="csvRecords.data.length">
+      <mat-card-content>
+        <mat-chip-list>
+          <mat-chip color="primary" selected>Total Rows {{csvRecords.data.length}}</mat-chip>
+          <mat-chip *ngIf="(csvRecords.data.length - cleanEmptyElements().length) !== 0" color="warn" selected
+            (click)="autoRemoveEmptyElements()">
+            <mat-icon aria-hidden="false" aria-label="Example home icon">highlight_off</mat-icon>
+            Invalid Rows {{csvRecords.data.length - cleanEmptyElements().length}}
+          </mat-chip>
+        </mat-chip-list>
+      </mat-card-content>
+      <p>
+        <b>Cell text color for selected headers: </b>
+        <span style="color: gray;">probably ok</span>,
+        <span style="color: red;">invalid</span>,
+        <span style="color: green;">OK</span>
+      </p>
+      <div style="overflow-x: auto; margin: 10px -16px -16px -16px;">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th *ngFor="let item of ' '.repeat(csvRecords.data[0].length).split(''); index as colIndex">
+                <button (click)="removeColumn(colIndex)" mat-icon-button color="warn">
+                  <mat-icon aria-hidden="false" aria-label="Example home icon">delete</mat-icon>
+                </button>
+              </th>
+            </tr>
+            <tr>
+              <th></th>
+              <th *ngFor="let item of ' '.repeat(csvRecords.data[0].length).split(''); index as colIndex">
+                <mat-select [(ngModel)]="csvRecords.headerOrder[colIndex]">
+                  <mat-option [value]="hIndex" *ngFor="let item of csvRecords.headerNames; index as hIndex">
+                    {{item}}
+                  </mat-option>
+                </mat-select>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of csvRecords.data; index as rowIndex" [class]="invalidRow(row)?'':'invalid'">
+              <td>
+                <button (click)="removeRow(rowIndex)" mat-icon-button color="warn">
+                  <mat-icon aria-hidden="false" aria-label="Example home icon">delete</mat-icon>
+                </button>
+              </td>
+              <td *ngFor="let column of row; index as colIndex" [style.color]="validateCell(column, colIndex)">
+                {{column}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </mat-card>
+    <mat-card>
+      <mat-card-content>
+        Developed by Mladen Dordevic (IRIS) and Steve Whitmeyer (JMU)
+      </mat-card-content>
+    </mat-card>
+  </mat-tab>
+  <mat-tab label="Map">
+    <p *ngIf="selected" style="position: absolute;top: 0px;z-index: 999;background: #dedede;    padding: 5px;">
+      Strike <input type="text" [(ngModel)]="strike">
+      Dip <input type="text" [(ngModel)]="dip">
+      <button (click)="update()">Update</button>
+    </p>
+    <div #map id="map"></div>
+  </mat-tab>
+</mat-tab-group>

@@ -1,0 +1,10 @@
+Name,Longitude,Latitude,Formation,Type,Color,Strike,Dip,DipDirection,Observation
+1,-9.8,53.57,Lough Mask,bedding,red,210,60,,210-60
+2,-9.8,53.572,Kylemore,bedding,brown,30,60,,30-60
+3,-9.8,53.574,Qtz breccia,bedding,white,30,60,E,30-60-E
+4,-9.8,53.576,Qtz breccia,bedding,white,30,60,W,30-60-W
+5,-9.8,53.578,Qtz breccia,bedding,white,280,44,N,280-44-N
+6,-9.82,53.576,Gowlaun,bedding,blue,280,36,S,280-36-S
+7,-9.82,53.578,Gowlaun,bedding,blue,100,55,N,100-55-N
+8,-9.81,53.576,Gowlaun,bedding,green,302,46,E,302-46-E
+9,-9.81,53.578,Gowlaun,bedding,green,285,47,E,285-47-E
