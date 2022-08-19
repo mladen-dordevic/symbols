@@ -46,3 +46,4 @@ testem.log
 Thumbs.db
 Makefile
 *.zip
+.angular/cache/*

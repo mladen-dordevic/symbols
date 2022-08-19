@@ -6,6 +6,7 @@ import { HeaderNames } from 'src/app/enum/header-names.enum';
 import { KmlService } from 'src/app/services/kml.service';
 import { TableCSV } from 'src/app/models/table-csv';
 import { KMLServiceOptions } from 'src/app/models/kmlservice-options';
+import { VERSION } from '@env/version';
 
 declare var google;
 
@@ -18,6 +19,7 @@ export class MapComponent implements OnInit {
   @ViewChild('map', { static: true }) mapElement: ElementRef;
   @ViewChild('fileImportInput', { static: false }) fileImportInput: any;
   map: any;
+  version = VERSION
   markers = [];
 
   dip = 0;
