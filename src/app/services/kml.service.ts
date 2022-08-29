@@ -45,7 +45,7 @@ export class KmlService {
       return this.createSymbol(
         this.getItemName(row, rowIndex),
         this.generatePopupContent(row),
-        this.csvRecords.getCol(row, HeaderNames.Color) || 'black',
+        this.csvRecords.getRowColor(row),
         this.generateGeometry(row),
         dip,
         strike
@@ -56,7 +56,7 @@ export class KmlService {
   private generateFolderString(): string {
     return this.csvRecords.getUniqueFormations().map(formation => {
       const currentFormationRows = this.csvRecords.data.filter((row: any[]) => {
-        return this.csvRecords.getCol(row, HeaderNames.Formation) === formation;
+        return this.csvRecords.getFormation(row) === formation;
       });
       return this.createFolder(formation, '0', this.generatePlacemarkString(currentFormationRows));
     }).join('');
@@ -64,10 +64,11 @@ export class KmlService {
 
   private generatePopupContent(row: any[]): string {
     const formation = this.csvRecords.getFormation(row);
-    const notes = this.csvRecords.getCol(row, HeaderNames.Observations);
+    const notes = this.csvRecords.getCol(row, HeaderNames.Notes);
+    const date = this.csvRecords.getCol(row, HeaderNames.Date);
     const dip = this.csvRecords.getDip(row);
     const strike = this.csvRecords.getStrike(row);
-    const type = this.csvRecords.getCol(row, HeaderNames.Type);
+    const type = this.getRowType(row);
 
     const dipLabel = type === 'lineation' ? 'Plunge' : 'Dip';
     const strikeLabel = type === 'lineation' ? 'Trend' : 'Strike';
@@ -76,6 +77,7 @@ export class KmlService {
       formation ? `Unit: ${formation}` : false,
       strike === undefined ? false : `${strikeLabel}: ${strike}&deg;`,
       dip === undefined ? false : `${dipLabel}: ${dip}&deg;`,
+      date ? `Date UTC: ${date}` : false,
       notes ? `<hr>Notes: ${notes}` : false
     ].filter(e => e).join('<br>')
   }
@@ -87,42 +89,58 @@ export class KmlService {
     return name || formation;
   }
 
+  private getRowType(row: any[]): string {
+    return this.csvRecords.getCol(row, HeaderNames['Planar Orientation Planar Feature Type']) || this.csvRecords.getCol(row, HeaderNames['Linear Orientation Linear Feature Type']) || '';
+  }
 
   private generateGeometry(row: any[]): string {
-    const type = this.csvRecords.getCol(row, HeaderNames.Type);
+    const type = this.getRowType(row);
     const lat = +this.csvRecords.getCol(row, HeaderNames.Latitude);
     const lng = +this.csvRecords.getCol(row, HeaderNames.Longitude);
-    const strike = this.csvRecords.getStrike(row);
-    const dip = this.csvRecords.getDip(row);
 
-
-    if (strike === undefined && dip === undefined) {
-      return `<Point><coordinates>${lng},${lat},${this.options.symbolLength / 2}</coordinates></Point>`;
+    let strike = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Strike']);
+    let dip = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Dip']);
+    let url = null;
+    if (strike !== undefined && dip !== undefined) {
+    } else {
+      strike = this.csvRecords.getCol(row, HeaderNames['Linear Orientation Trend']);
+      dip = this.csvRecords.getCol(row, HeaderNames['Linear Orientation Plunge']);
+      if (strike !== undefined && dip !== undefined) {
+      } else {
+        return `<Point><coordinates>${lng},${lat},${this.options.symbolLength / 2}</coordinates></Point>`;
+      }
     }
 
     switch (type.toLowerCase()) {
       case 'bedding':
-        if (dip === 90) {
-          return this.generateStrikeDip90Geometry(lat, lng, dip, strike);
+        if (+dip === 90) {
+          return this.generateStrikeDip90Geometry(lat, lng, +dip, +strike);
         }
-        if (dip === 0) {
-          return this.generateStrikeDip0Geometry(lat, lng, dip, strike);
+        if (+dip === 0) {
+          return this.generateStrikeDip0Geometry(lat, lng, +dip, +strike);
         }
-        return this.generateStrikeDipGeometry(lat, lng, dip, strike);
+        return this.generateStrikeDipGeometry(lat, lng, +dip, +strike);
+      case 'slickenlines':
+        if (+dip === 90) {
+          return this.generateStrikeDip90Geometry(lat, lng, +dip, +strike);
+        }
+        if (+dip === 0) {
+          return this.generateStrikeDip0Geometry(lat, lng, +dip, +strike);
+        }
+        return this.generateStrikeDipGeometry(lat, lng, +dip, +strike);
       case 'foliation':
-        return this.generateFoliationGeometry(lat, lng, dip, strike);
+        return this.generateFoliationGeometry(lat, lng, +dip, +strike);
       case 'lineation':
-        return this.generateLineationGeometry(lat, lng, dip, strike);
+        return this.generateLineationGeometry(lat, lng, +dip, +strike);
       default:
         return `<Point><coordinates>${lng},${lat},${this.options.symbolLength / 2}</coordinates></Point>`;
     }
-
   }
 
   private createStyles(): string {
-    const colors = this.csvRecords.getUniqColor();
+    const tags = this.csvRecords.tagColors;
     const noIcon = '<Style id="sn_no_icon"><IconStyle><Icon></Icon></IconStyle><LabelStyle>		<scale>1.0</scale></LabelStyle></Style>';
-    return noIcon + colors.map(color => this.createStyle(color)).join('');
+    return noIcon + tags.map(tag => this.createStyle(tag.color)).join('');
   }
 
   private colorName2aabbggrr(colorName: string): string {

@@ -3,18 +3,10 @@ import { Colors } from 'src/app/enum/colors.enum';
 import { DipDirection } from 'src/app/enum/dip-direction.enum';
 
 export class TableCSV {
-  headerNames = [
-    'Name for Point',
-    'Longitude',
-    'Latitude',
-    'Unit/Formation',
-    'Symbol Type',
-    'Symbol Color',
-    'Strike or Trend',
-    'Dip or Plunge',
-    'Dip Direction',
-    'Notes/Observation',
-  ];
+  // headerNames = Object.keys(HeaderNames).filter((v) => isNaN(Number(v)));
+  headerNames = [];
+  headerOrder = [];
+  tagColors;
 
   isNumeric(val: any): boolean {
     const test = parseFloat(val);
@@ -23,7 +15,7 @@ export class TableCSV {
 
   rawData: string;
   data: [][] = [];
-  headerOrder = [];
+
 
   private initHeaderOrder(length: number = +Infinity) {
     this.headerOrder = this.headerNames.map((e, i) => i).filter((e, i) => i < length);
@@ -31,6 +23,7 @@ export class TableCSV {
 
   setData(data: any) {
     this.data = data;
+    this.headerNames = [...data[0]];
     this.initHeaderOrder(this.data[0].length);
   }
 
@@ -45,14 +38,14 @@ export class TableCSV {
         return this.isNumeric(value) && +value >= -180 && +value <= 180;
       case HeaderNames.Latitude:
         return this.isNumeric(value) && +value >= -90 && +value <= 90;
-      case HeaderNames.Strike:
+      case HeaderNames['Planar Orientation Strike']:
         return this.isNumeric(value) && +value >= 0 && +value < 360;
-      case HeaderNames.Dip:
+      case HeaderNames['Planar Orientation Dip']:
         return this.isNumeric(value) && +value >= 0 && +value <= 90;
-      case HeaderNames.Color:
+      case HeaderNames['Symbol Color']:
         return Colors[value] !== undefined;
-      case HeaderNames.DipDirection:
-        return DipDirection[value.toUpperCase()] !== undefined;
+      case HeaderNames['Planar Orientation Facing']:
+        return typeof (value) === 'string' && DipDirection[value.toUpperCase()] !== undefined;
       default:
         return null;
     }
@@ -60,7 +53,7 @@ export class TableCSV {
 
   getUniqColor() {
     return this.data.reduce((acc, row) => {
-      const color = this.getCol(row, HeaderNames.Color);
+      const color = this.getCol(row, HeaderNames['Symbol Color']);
       if (color) {
         const res = acc.indexOf(color) === -1 ? true : false;
         if (res) {
@@ -72,33 +65,32 @@ export class TableCSV {
   }
 
   getUniqueFormations(): string[] {
-    const formations = {};
-    for (let row of this.data) {
-      const formationName = this.getCol(row, HeaderNames.Formation);
-      if (formationName) {
-        formations[formationName] = true;
-      }
-    }
-    return Object.keys(formations);
+    return this.headerNames.filter(tag => tag.includes('Tag:'));
+  }
+
+  getRowColor(row: any[]): string {
+    const tag = this.getFormation(row);
+    const item = this.tagColors.find(e => e.tag === tag);
+    return item?.color || 'black';
   }
 
   getFormation(row: any[]): string {
-    return this.getCol(row, HeaderNames.Formation);
+    return this.headerNames.find((tag, index) => tag.includes('Tag:') && row[index] && row[index].trim() === 'X');
   }
 
   getStrike(row: any[]): number | undefined {
-    const strikeDirty = this.getCol(row, HeaderNames.Strike);
+    const strikeDirty = this.getCol(row, HeaderNames['Planar Orientation Strike']);
     const strikeAdjustment = this.dipDirectionAdjustment(row);
     return (strikeDirty === '' || strikeDirty === undefined) ? undefined : ((+strikeDirty + strikeAdjustment) % 360);
   }
 
   dipDirectionAdjustment(row: any): number {
-    const dd = this.getCol(row, HeaderNames.DipDirection)
+    const dd = this.getCol(row, HeaderNames['Planar Orientation Facing'])
     if (!dd) {
       return 0;
     }
     const dipDirection: DipDirection = <any>DipDirection[dd.toUpperCase()];
-    const s = +this.getCol(row, HeaderNames.Strike);
+    const s = +this.getCol(row, HeaderNames['Planar Orientation Strike']);
 
     if (s >= 0 && s < 90 && [DipDirection.W, DipDirection.N, DipDirection.NW].indexOf(dipDirection) > -1) { return 180; }
     if (s >= 90 && s < 180 && [DipDirection.N, DipDirection.E, DipDirection.NE].indexOf(dipDirection) > -1) { return 180; }
@@ -108,7 +100,7 @@ export class TableCSV {
   }
 
   getDip(row: any[]): number | undefined {
-    const dipDirty = this.getCol(row, HeaderNames.Dip);
+    const dipDirty = this.getCol(row, HeaderNames['Planar Orientation Dip']);
     return (dipDirty === '' || dipDirty === undefined) ? undefined : +dipDirty;
   }
 

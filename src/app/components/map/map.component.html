@@ -43,7 +43,7 @@
           </li>
         </ul>
         <button type="button" mat-raised-button (click)="fileInput.click()">Choose File</button>
-        <input hidden #fileInput type="file" #fileImportInput (change)="fileChangeListener($event)" accept=".csv">
+        <input hidden #fileInput type="file" #fileImportInput (change)="fileChangeListener($event)">
       </mat-card-content>
     </mat-card>
     <mat-card *ngIf="csvRecords.data.length">
@@ -69,6 +69,16 @@
           <input matInput [(ngModel)]="fileName">
         </mat-form-field>
         <mat-slide-toggle [(ngModel)]="createFolders">Group symbols to folders by Unit/Formation</mat-slide-toggle>
+        <h3>Colors {{tagColors.length}}</h3>
+        <mat-form-field *ngFor="let item of tagColors" appearance="fill">
+          <mat-label>{{item.tag}}</mat-label>
+          <mat-select [(ngModel)]="item.color" name="color">
+            <mat-option [style.backgroundColor]="'#'+color.value" *ngFor="let color of availableColors | keyvalue"
+              [value]="color.key">
+              {{color.key}}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
       </mat-card-content>
       <mat-card-actions>
         <button mat-button color="primary" (click)="export()">Export</button>

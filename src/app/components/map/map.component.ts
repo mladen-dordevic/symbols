@@ -7,6 +7,8 @@ import { KmlService } from 'src/app/services/kml.service';
 import { TableCSV } from 'src/app/models/table-csv';
 import { KMLServiceOptions } from 'src/app/models/kmlservice-options';
 import { VERSION } from '@env/version';
+import { read, utils } from 'xlsx';
+import { Colors } from 'src/app/enum/colors.enum';
 
 declare var google;
 
@@ -31,6 +33,9 @@ export class MapComponent implements OnInit {
   csvRecords: TableCSV
 
   headerOrder = [];
+  header = [];
+  tagColors = [];
+  availableColors = Colors;
   symbolLength = 50;
   symbolHeight = 25;
   lineWidth = 6;
@@ -70,12 +75,62 @@ export class MapComponent implements OnInit {
     })
   }
 
-  fileChangeListener($event: any): void {
-    const files = $event.srcElement.files;
-    this.papa.parse(files[0], {
-      complete: (result) => {
-        this.csvRecords.setData(result.data);
+  async fileChangeListener($event: any): Promise<void> {
+    const file: File = $event.srcElement.files[0];
+    console.log(file);
+    let res = null;
+    if (file.type === 'text/csv') {
+      res = await this.parseCSV(file);
+    }
+    if (file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+      res = await this.parseXLS(file);
+    }
+
+    this.csvRecords.setData(res);
+  }
+
+  async parseXLS(file: File): Promise<any> {
+    const arrayBuffer = await file.arrayBuffer();
+    const worksheet = read(arrayBuffer);
+    const json: any[][] = utils.sheet_to_json(worksheet.Sheets.Spots);
+
+    const header = json.shift();
+    const keys = Object.keys(header);
+    this.header = Object.values(header);
+
+    const out = [];
+    out.push(this.header);
+
+    this.header.forEach(key => {
+      if (key.includes('Tag:')) {
+        this.tagColors.push({
+          tag: key,
+          color: 'red'
+        });
       }
+    });
+
+    this.csvRecords.tagColors = this.tagColors;
+
+    json.forEach(row => {
+      const rowOut = Array(keys.length);
+      keys.forEach((key, index) => {
+        if (key in row) {
+          rowOut[index] = row[key];
+        }
+      });
+      out.push(rowOut);
+    })
+    return out;
+  }
+
+  parseCSV(file: File): Promise<any> {
+    return new Promise((resolve, reject) => {
+      this.papa.parse(file, {
+        complete: (result) => {
+          resolve(result.data);
+        }
+      })
     });
   }
 
@@ -118,13 +173,39 @@ export class MapComponent implements OnInit {
   invalidRow(row): boolean {
     const lat = +this.csvRecords.getCol(row, HeaderNames.Latitude);
     const lng = +this.csvRecords.getCol(row, HeaderNames.Longitude);
+
+    const strikeTrend = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Strike']) !== undefined || this.csvRecords.getCol(row, HeaderNames['Linear Orientation Trend']) !== undefined;
     return lat !== 0 && isNaN(lat) === false && lng !== 0 && isNaN(lng) === false;
   }
 
+  getRowColor(row: any[]): string {
+    const tag = this.header.find((tag, index) => {
+      return tag.includes('Tag:') && row[index] && row[index].trim() === 'X'
+    });
+    const tagColor = this.tagColors.find(e => e.tag === tag);
+    return tagColor?.color || 'red';
+  }
+
   createMarker(row: any[]) {
-    const color = this.csvRecords.getCol(row, HeaderNames.Color);
-    const strike = +this.csvRecords.getStrike(row);
-    const dip = +this.csvRecords.getCol(row, HeaderNames.Dip);
+    // const color = this.csvRecords.getCol(row, HeaderNames['Symbol Color']);
+    let strike = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Strike']);
+    let dip = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Dip']);
+    let url = null;
+    const color = this.getRowColor(row);
+    if (strike !== undefined && dip !== undefined) {
+      url = this.iconService.strikeDit(+strike, +dip, color);
+    } else {
+      strike = this.csvRecords.getCol(row, HeaderNames['Linear Orientation Trend']);
+      dip = this.csvRecords.getCol(row, HeaderNames['Linear Orientation Plunge']);
+
+      if (strike !== undefined && dip !== undefined) {
+        url = this.iconService.trendPlunge(+strike, +dip, color);
+      } else {
+        url = this.iconService.circleIcon(color);
+      }
+    }
+
+
     const position = {
       lat: +this.csvRecords.getCol(row, HeaderNames.Latitude),
       lng: +this.csvRecords.getCol(row, HeaderNames.Longitude)
@@ -132,10 +213,11 @@ export class MapComponent implements OnInit {
     const marker = new google.maps.Marker({
       position,
       icon: {
-        url: this.iconService.strikeDit(strike, dip, color),
+        url,
         anchor: new google.maps.Point(15, 15)
       },
       map: this.map,
+      title: this.csvRecords.getCol(row, HeaderNames.Notes),
       strike,
       dip,
       color,
