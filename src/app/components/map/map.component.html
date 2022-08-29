@@ -6,42 +6,10 @@
       </mat-card-header>
       <mat-card-content>
         <p>
-          Symbols inputs a CSV file of structural data from field stations and outputs a Google Earth KML file with
-          inclined orientation symbols. 3D symbols are positioned above the Google Earth landscape based on the
-          parameters below. It is suggested that your CSV file has columns for each of the parameters below, but the
-          only columns that are required are Latitude, Longitude, and Unit/Formation.
+          Symbols inputs a StraboSpot xls file of structural data from field stations and outputs a Google Earth KML
+          file with
+          inclined orientation symbols.
         </p>
-        <h4>Parameters (columns in CSV file)</h4>
-        <ul>
-          <li><b>Name for Point</b>: the title for a field location or station;
-            defaults to Unit/Formation name if not provided in CSV file
-          </li>
-          <li><b>Longitude</b>: in decimal degrees (required)
-          </li>
-          <li><b>Latitude</b>: in decimal degrees (required)
-          </li>
-          <li><b>Unit/Formation</b>: unit or formation name (required)
-          </li>
-          <li><b>Symbol Type</b>: type of symbol drawn in GE; can be bedding, foliation, lineation;
-            defaults to a dot if not provided in CSV file
-          </li>
-          <li><b>Symbol Color</b>: color of the symbol drawn in GE;
-            defaults to black if not provided in CSV file. <a href="http://html-color-names.com/color-chart.php"
-              target="_blank">Color
-              Chart</a>
-          </li>
-          <li><b>Strike or Trend</b>: direction of strike (or trend if a lineation)
-          </li>
-          <li><b>Dip or Plunge</b>: amount of dip (or plunge if a lineation)
-          </li>
-          <li><b>Dip Direction</b>: cardinal direction of the dip line (N,S,E,W),
-            right hand rule is assumed if there is no column for Dip Direction in CSV
-            file
-          </li>
-          <li><b>Notes/Observation</b>: any Notes are added to the pop-up bubble when a symbol is clicked in
-            GE
-          </li>
-        </ul>
         <button type="button" mat-raised-button (click)="fileInput.click()">Choose File</button>
         <input hidden #fileInput type="file" #fileImportInput (change)="fileChangeListener($event)">
       </mat-card-content>
@@ -69,8 +37,8 @@
           <input matInput [(ngModel)]="fileName">
         </mat-form-field>
         <mat-slide-toggle [(ngModel)]="createFolders">Group symbols to folders by Unit/Formation</mat-slide-toggle>
-        <h3>Colors {{tagColors.length}}</h3>
-        <mat-form-field *ngFor="let item of tagColors" appearance="fill">
+        <h3>Tag Colors</h3>
+        <mat-form-field *ngFor="let item of tagColors" appearance="fill" [style.backgroundColor]="item.color">
           <mat-label>{{item.tag}}</mat-label>
           <mat-select [(ngModel)]="item.color" name="color">
             <mat-option [style.backgroundColor]="'#'+color.value" *ngFor="let color of availableColors | keyvalue"

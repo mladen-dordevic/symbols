@@ -101,11 +101,15 @@ export class MapComponent implements OnInit {
     const out = [];
     out.push(this.header);
 
-    this.header.forEach(key => {
+    const colorsTmp = Object.keys(Colors);
+
+    this.header.forEach((key, index) => {
+      const randomColor = colorsTmp[Math.floor(colorsTmp.length * Math.random())];
+      const detColor = colorsTmp[this.tagColors.length];
       if (key.includes('Tag:')) {
         this.tagColors.push({
           tag: key,
-          color: 'red'
+          color: randomColor
         });
       }
     });

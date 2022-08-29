@@ -21,6 +21,4 @@ export enum HeaderNames {
   'Trace Trace Quality',
   'Trace Trace Type',
   'Trace Other Feature',
-  'Symbol Color',
-  'Tag'
 }
