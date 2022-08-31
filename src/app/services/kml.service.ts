@@ -40,15 +40,15 @@ export class KmlService {
 
   private generatePlacemarkString(rows: any[]): string {
     return rows.map((row: any, rowIndex: number) => {
-      const strike = this.csvRecords.getStrike(row);
-      const dip = this.csvRecords.getDip(row);
+      const planarOrientation = this.csvRecords.getPlanarOrientation(row);
+      const linearOrientation = this.csvRecords.getLinearOrientation(row);
       return this.createSymbol(
         this.getItemName(row, rowIndex),
         this.generatePopupContent(row),
         this.csvRecords.getRowColor(row),
         this.generateGeometry(row),
-        dip,
-        strike
+        planarOrientation?.dip | linearOrientation?.dip,
+        planarOrientation?.strike | linearOrientation?.strike
       );
     }).join('');
   }
@@ -66,20 +66,19 @@ export class KmlService {
     const formation = this.csvRecords.getFormation(row);
     const notes = this.csvRecords.getCol(row, HeaderNames.Notes);
     const date = this.csvRecords.getCol(row, HeaderNames.Date);
-    const dip = this.csvRecords.getDip(row);
-    const strike = this.csvRecords.getStrike(row);
+    const planarOrientation = this.csvRecords.getPlanarOrientation(row);
+    const linearOrientation = this.csvRecords.getLinearOrientation(row);
     const type = this.getRowType(row);
     const planMQ = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Quality']);
     const planarFacing = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Facing']);
 
-    const dipLabel = type === 'lineation' ? 'Plunge' : 'Dip';
-    const strikeLabel = type === 'lineation' ? 'Trend' : 'Strike';
-
     return [
       formation ? `Unit: ${formation.replace('Tag:', '')}` : false,
       type ? `Feature: ${type.toLocaleUpperCase()}` : false,
-      strike === undefined ? false : `${strikeLabel}: ${strike}&deg;`,
-      dip === undefined ? false : `${dipLabel}: ${dip}&deg;`,
+      planarOrientation ? `Strike: ${planarOrientation.strike}&deg;` : false,
+      planarOrientation ? `Dip: ${planarOrientation.dip}&deg;` : false,
+      linearOrientation ? `Trend: ${linearOrientation.strike}&deg;` : false,
+      linearOrientation ? `Plunge: ${linearOrientation.dip}&deg;` : false,
       planMQ ? `Measurement Quality: ${planMQ}` : false,
       planarFacing ? `Facing ${planarFacing}` : false,
       date ? `Date UTC: ${date}` : false,
@@ -99,37 +98,39 @@ export class KmlService {
   }
 
   private generateGeometry(row: any[]): string {
-    const type = this.getRowType(row);
     const out = [];
     const planarOrientation = this.csvRecords.getPlanarOrientation(row);
     const linearOrientation = this.csvRecords.getLinearOrientation(row);
+    const line = this.csvRecords.getLine(row);
     const latLng = this.csvRecords.getLatLng(row);
-    if (!latLng) {
-      return '';
-    }
-    if (!planarOrientation && !linearOrientation) {
+
+    if (!planarOrientation && !linearOrientation && !line) {
       out.push(`<Point><coordinates>${latLng.lng},${latLng.lat},${this.options.symbolLength / 2}</coordinates></Point>`);
+    }
+
+    if (line) {
+      out.push(...this.createLinearString(line, 'clampToGround'));
     }
 
     if (planarOrientation) {
       if (planarOrientation.dip === 90) {
-        out.push(this.generateStrikeDip90Geometry(latLng.lat, latLng.lng, planarOrientation.dip, planarOrientation.strike));
+        out.push(...this.generateStrikeDip90Geometry(latLng.lat, latLng.lng, planarOrientation.dip, planarOrientation.strike));
       }
       if (planarOrientation.dip === 0) {
-        out.push(this.generateStrikeDip0Geometry(latLng.lat, latLng.lng, planarOrientation.dip, planarOrientation.strike));
+        out.push(...this.generateStrikeDip0Geometry(latLng.lat, latLng.lng, planarOrientation.dip, planarOrientation.strike));
       }
-      out.push(this.generateStrikeDipGeometry(latLng.lat, latLng.lng, planarOrientation.dip, planarOrientation.strike));
+      out.push(...this.generateStrikeDipGeometry(latLng.lat, latLng.lng, planarOrientation.dip, planarOrientation.strike));
     }
     if (linearOrientation) {
       if (linearOrientation.dip === 90) {
-        // out.push(this.generateStrikeDip90Geometry(latLng.lat, latLng.lng, linearOrientation.dip, linearOrientation.strike));
+        // out.push(...this.generateStrikeDip90Geometry(latLng.lat, latLng.lng, linearOrientation.dip, linearOrientation.strike));
       }
       if (linearOrientation.dip === 0) {
-        // out.push(this.generateStrikeDip0Geometry(latLng.lat, latLng.lng, linearOrientation.dip, linearOrientation.strike));
+        // out.push(...this.generateStrikeDip0Geometry(latLng.lat, latLng.lng, linearOrientation.dip, linearOrientation.strike));
       }
-      out.push(this.generateLineationGeometry(latLng.lat, latLng.lng, linearOrientation.dip, linearOrientation.strike));
+      out.push(...this.generateLineationGeometry(latLng.lat, latLng.lng, linearOrientation.dip, linearOrientation.strike));
     }
-    return out.join('');
+    return this.createMultiGeometry(out);
   }
 
   private createStyles(): string {
@@ -204,7 +205,7 @@ export class KmlService {
     </Folder>`
   }
 
-  private generateStrikeDipGeometry(lat: number, lng: number, dip: number, strike: number): string {
+  private generateStrikeDipGeometry(lat: number, lng: number, dip: number, strike: number): string[] {
     const unit = this.options.symbolLength / 2;
     const pm = new google.maps.LatLng(lat, lng);
     const p1 = google.maps.geometry.spherical.computeOffset(pm, unit, strike);
@@ -214,7 +215,7 @@ export class KmlService {
     const alt = this.options.symbolHeight - unit / 2 * Math.sin(dip * Math.PI / 180);
     this.labelCoords = `${p3.lng()},${p3.lat()},${alt}`;
 
-    return this.createMultiGeometry([
+    return [
       this.createLinearString([
         [p1.lng(), p1.lat(), this.options.symbolHeight],
         [pm.lng(), pm.lat(), this.options.symbolHeight],
@@ -222,12 +223,12 @@ export class KmlService {
         [pm.lng(), pm.lat(), this.options.symbolHeight],
         [p2.lng(), p2.lat(), this.options.symbolHeight]
       ])
-    ]);
+    ];
 
   }
 
   // Crossed circle with only a strike, same height
-  private generateStrikeDip0Geometry(lat: number, lng: number, dip: number, strike: number): string {
+  private generateStrikeDip0Geometry(lat: number, lng: number, dip: number, strike: number): string[] {
     const unit = this.options.symbolLength / 2;
     const pm = new google.maps.LatLng(lat, lng);
     const p1 = google.maps.geometry.spherical.computeOffset(pm, unit, strike);
@@ -242,7 +243,7 @@ export class KmlService {
 
     circles = circles.map(c => [c.lng(), c.lat(), this.options.symbolHeight]);
 
-    return this.createMultiGeometry([
+    return [
       this.createLinearString([
         [p1.lng(), p1.lat(), this.options.symbolHeight],
         [p3.lng(), p3.lat(), this.options.symbolHeight]
@@ -252,10 +253,10 @@ export class KmlService {
         [p4.lng(), p4.lat(), this.options.symbolHeight]
       ]),
       this.createLinearString(circles)
-    ]);
+    ];
   }
 
-  private generateStrikeDip90Geometry(lat: number, lng: number, dip: number, strike: number): string {
+  private generateStrikeDip90Geometry(lat: number, lng: number, dip: number, strike: number): string[] {
     const unit = this.options.symbolLength / 2;
     const pm = new google.maps.LatLng(lat, lng);
     const p1 = google.maps.geometry.spherical.computeOffset(pm, unit, strike);
@@ -265,7 +266,7 @@ export class KmlService {
     const p1a = google.maps.geometry.spherical.computeOffset(pm, unit / 2, strike + 90);
     const p2a = google.maps.geometry.spherical.computeOffset(pm, unit / 2, strike + 270);
 
-    return this.createMultiGeometry([
+    return [
       this.createLinearString([
         [p1.lng(), p1.lat(), this.options.symbolHeight],
         [p2.lng(), p2.lat(), this.options.symbolHeight]
@@ -278,7 +279,7 @@ export class KmlService {
         [pm.lng(), pm.lat(), this.options.symbolHeight],
         [pm.lng(), pm.lat(), this.options.symbolHeight - unit / 2]
       ])
-    ]);
+    ];
   }
 
   // Line
@@ -307,7 +308,7 @@ export class KmlService {
   }
 
   // Line with the arrow at one end
-  private generateLineationGeometry(lat: number, lng: number, dip: number, strike: number): string {
+  private generateLineationGeometry(lat: number, lng: number, dip: number, strike: number): string[] {
     const unit = this.options.symbolLength / 4;
     const pm = new google.maps.LatLng(lat, lng);
     const f = Math.cos(dip * Math.PI / 180);
@@ -320,7 +321,7 @@ export class KmlService {
     const alt = Math.sin(dip * Math.PI / 180);
     this.labelCoords = `${p1.lng()},${p1.lat()},${this.options.symbolHeight - unit * alt}`;
 
-    return this.createMultiGeometry([
+    return [
       this.createLinearString([
         [p1.lng(), p1.lat(), this.options.symbolHeight - unit * alt],
         [p2.lng(), p2.lat(), this.options.symbolHeight + unit * alt]
@@ -330,10 +331,10 @@ export class KmlService {
         [p1.lng(), p1.lat(), this.options.symbolHeight - unit * alt],
         [p2b.lng(), p2b.lat(), this.options.symbolHeight - unit * 0.7 * alt]
       ])
-    ])
+    ];
   }
 
-  private createLinearString(coords: any[], altitudeMode = 'relativeToGround'): string {
+  private createLinearString(coords: any[], altitudeMode: 'clampToGround' | 'relativeToGround' = 'relativeToGround'): string {
     return `<LineString>
       <tesselate>1</tesselate>
       <altitudeMode>${altitudeMode}</altitudeMode>
