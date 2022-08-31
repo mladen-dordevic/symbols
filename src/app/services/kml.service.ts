@@ -69,14 +69,19 @@ export class KmlService {
     const dip = this.csvRecords.getDip(row);
     const strike = this.csvRecords.getStrike(row);
     const type = this.getRowType(row);
+    const planMQ = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Quality']);
+    const planarFacing = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Facing']);
 
     const dipLabel = type === 'lineation' ? 'Plunge' : 'Dip';
     const strikeLabel = type === 'lineation' ? 'Trend' : 'Strike';
 
     return [
-      formation ? `Unit: ${formation}` : false,
+      formation ? `Unit: ${formation.replace('Tag:', '')}` : false,
+      type ? `Feature: ${type.toLocaleUpperCase()}` : false,
       strike === undefined ? false : `${strikeLabel}: ${strike}&deg;`,
       dip === undefined ? false : `${dipLabel}: ${dip}&deg;`,
+      planMQ ? `Measurement Quality: ${planMQ}` : false,
+      planarFacing ? `Facing ${planarFacing}` : false,
       date ? `Date UTC: ${date}` : false,
       notes ? `<hr>Notes: ${notes}` : false
     ].filter(e => e).join('<br>')
@@ -95,46 +100,36 @@ export class KmlService {
 
   private generateGeometry(row: any[]): string {
     const type = this.getRowType(row);
-    const lat = +this.csvRecords.getCol(row, HeaderNames.Latitude);
-    const lng = +this.csvRecords.getCol(row, HeaderNames.Longitude);
+    const out = [];
+    const planarOrientation = this.csvRecords.getPlanarOrientation(row);
+    const linearOrientation = this.csvRecords.getLinearOrientation(row);
+    const latLng = this.csvRecords.getLatLng(row);
+    if (!latLng) {
+      return '';
+    }
+    if (!planarOrientation && !linearOrientation) {
+      out.push(`<Point><coordinates>${latLng.lng},${latLng.lat},${this.options.symbolLength / 2}</coordinates></Point>`);
+    }
 
-    let strike = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Strike']);
-    let dip = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Dip']);
-    let url = null;
-    if (strike !== undefined && dip !== undefined) {
-    } else {
-      strike = this.csvRecords.getCol(row, HeaderNames['Linear Orientation Trend']);
-      dip = this.csvRecords.getCol(row, HeaderNames['Linear Orientation Plunge']);
-      if (strike !== undefined && dip !== undefined) {
-      } else {
-        return `<Point><coordinates>${lng},${lat},${this.options.symbolLength / 2}</coordinates></Point>`;
+    if (planarOrientation) {
+      if (planarOrientation.dip === 90) {
+        out.push(this.generateStrikeDip90Geometry(latLng.lat, latLng.lng, planarOrientation.dip, planarOrientation.strike));
       }
+      if (planarOrientation.dip === 0) {
+        out.push(this.generateStrikeDip0Geometry(latLng.lat, latLng.lng, planarOrientation.dip, planarOrientation.strike));
+      }
+      out.push(this.generateStrikeDipGeometry(latLng.lat, latLng.lng, planarOrientation.dip, planarOrientation.strike));
     }
-
-    switch (type.toLowerCase()) {
-      case 'bedding':
-        if (+dip === 90) {
-          return this.generateStrikeDip90Geometry(lat, lng, +dip, +strike);
-        }
-        if (+dip === 0) {
-          return this.generateStrikeDip0Geometry(lat, lng, +dip, +strike);
-        }
-        return this.generateStrikeDipGeometry(lat, lng, +dip, +strike);
-      case 'slickenlines':
-        if (+dip === 90) {
-          return this.generateStrikeDip90Geometry(lat, lng, +dip, +strike);
-        }
-        if (+dip === 0) {
-          return this.generateStrikeDip0Geometry(lat, lng, +dip, +strike);
-        }
-        return this.generateStrikeDipGeometry(lat, lng, +dip, +strike);
-      case 'foliation':
-        return this.generateFoliationGeometry(lat, lng, +dip, +strike);
-      case 'lineation':
-        return this.generateLineationGeometry(lat, lng, +dip, +strike);
-      default:
-        return `<Point><coordinates>${lng},${lat},${this.options.symbolLength / 2}</coordinates></Point>`;
+    if (linearOrientation) {
+      if (linearOrientation.dip === 90) {
+        // out.push(this.generateStrikeDip90Geometry(latLng.lat, latLng.lng, linearOrientation.dip, linearOrientation.strike));
+      }
+      if (linearOrientation.dip === 0) {
+        // out.push(this.generateStrikeDip0Geometry(latLng.lat, latLng.lng, linearOrientation.dip, linearOrientation.strike));
+      }
+      out.push(this.generateLineationGeometry(latLng.lat, latLng.lng, linearOrientation.dip, linearOrientation.strike));
     }
+    return out.join('');
   }
 
   private createStyles(): string {

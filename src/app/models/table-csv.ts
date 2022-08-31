@@ -27,12 +27,13 @@ export class TableCSV {
     this.initHeaderOrder(this.data[0].length);
   }
 
-  getCol(row: any[], index: HeaderNames): string {
+  getCol(row: any[], headerName: HeaderNames): string {
+    const index = this.headerNames.indexOf(headerName);
     return row[this.headerOrder.indexOf(index)];
   }
 
   validateCellType(value: any, colIndex: number): boolean | null {
-    const type = this.headerOrder[colIndex];
+    const type = this.headerNames[this.headerOrder[colIndex]];
     switch (type) {
       case HeaderNames.Longitude:
         return this.isNumeric(value) && +value >= -180 && +value <= 180;
@@ -42,26 +43,9 @@ export class TableCSV {
         return this.isNumeric(value) && +value >= 0 && +value < 360;
       case HeaderNames['Planar Orientation Dip']:
         return this.isNumeric(value) && +value >= 0 && +value <= 90;
-      case HeaderNames['Symbol Color']:
-        return Colors[value] !== undefined;
-      case HeaderNames['Planar Orientation Facing']:
-        return typeof (value) === 'string' && DipDirection[value.toUpperCase()] !== undefined;
       default:
         return null;
     }
-  }
-
-  getUniqColor() {
-    return this.data.reduce((acc, row) => {
-      const color = this.getCol(row, HeaderNames['Symbol Color']);
-      if (color) {
-        const res = acc.indexOf(color) === -1 ? true : false;
-        if (res) {
-          acc.push(color);
-        }
-      }
-      return acc;
-    }, ['black']);
   }
 
   getUniqueFormations(): string[] {
@@ -76,6 +60,33 @@ export class TableCSV {
 
   getFormation(row: any[]): string {
     return this.headerNames.find((tag, index) => tag.includes('Tag:') && row[index] && row[index].trim() === 'X');
+  }
+
+  getLinearOrientation(row: any[]): { strike: number, dip: number } | undefined {
+    const strike = this.getCol(row, HeaderNames['Linear Orientation Trend']);
+    const dip = this.getCol(row, HeaderNames['Linear Orientation Plunge']);
+    if (strike !== undefined && dip !== undefined) {
+      return { strike: +strike, dip: +dip };
+    }
+    return undefined;
+  }
+
+  getPlanarOrientation(row: any[]): { strike: number, dip: number } | undefined {
+    const strike = this.getCol(row, HeaderNames['Planar Orientation Strike']);
+    const dip = this.getCol(row, HeaderNames['Planar Orientation Dip']);
+    if (strike !== undefined && dip !== undefined) {
+      return { strike: +strike, dip: +dip };
+    }
+    return undefined;
+  }
+
+  getLatLng(row: any[]): { lat: number, lng: number } | undefined {
+    const lat = this.getCol(row, HeaderNames.Latitude);
+    const lng = this.getCol(row, HeaderNames.Longitude);
+    if (lat !== undefined && lng !== undefined) {
+      return { lat: +lat, lng: +lng };
+    }
+    return undefined;
   }
 
   getStrike(row: any[]): number | undefined {

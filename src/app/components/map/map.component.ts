@@ -191,29 +191,18 @@ export class MapComponent implements OnInit {
   }
 
   createMarker(row: any[]) {
-    // const color = this.csvRecords.getCol(row, HeaderNames['Symbol Color']);
-    let strike = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Strike']);
-    let dip = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Dip']);
-    let url = null;
+    const position = this.csvRecords.getLatLng(row);
+    const planarOrientation = this.csvRecords.getPlanarOrientation(row);
+    const linearOrientation = this.csvRecords.getLinearOrientation(row);
     const color = this.getRowColor(row);
-    if (strike !== undefined && dip !== undefined) {
-      url = this.iconService.strikeDit(+strike, +dip, color);
-    } else {
-      strike = this.csvRecords.getCol(row, HeaderNames['Linear Orientation Trend']);
-      dip = this.csvRecords.getCol(row, HeaderNames['Linear Orientation Plunge']);
-
-      if (strike !== undefined && dip !== undefined) {
-        url = this.iconService.trendPlunge(+strike, +dip, color);
-      } else {
-        url = this.iconService.circleIcon(color);
-      }
+    let url = this.iconService.circleIcon(color);
+    if (planarOrientation) {
+      url = this.iconService.strikeDit(planarOrientation.strike, planarOrientation.dip, color);
+    }
+    if (linearOrientation) {
+      url = this.iconService.trendPlunge(linearOrientation.strike, linearOrientation.dip, color);
     }
 
-
-    const position = {
-      lat: +this.csvRecords.getCol(row, HeaderNames.Latitude),
-      lng: +this.csvRecords.getCol(row, HeaderNames.Longitude)
-    };
     const marker = new google.maps.Marker({
       position,
       icon: {
@@ -222,8 +211,8 @@ export class MapComponent implements OnInit {
       },
       map: this.map,
       title: this.csvRecords.getCol(row, HeaderNames.Notes),
-      strike,
-      dip,
+      strike: planarOrientation?.strike || linearOrientation?.strike || undefined,
+      dip: planarOrientation?.dip || linearOrientation?.dip || undefined,
       color,
       row
     });
@@ -246,7 +235,9 @@ export class MapComponent implements OnInit {
       bounds.extend(marker.getPosition());
       return marker;
     });
-    this.map.fitBounds(bounds, { top: 5, bottom: 5, left: 5, right: 5 });
+    setTimeout(() => {
+      this.map.fitBounds(bounds, { top: 5, bottom: 5, left: 5, right: 5 });
+    }, 300);
   }
 
   export() {
