@@ -67,7 +67,7 @@ export class TableCSV {
   getLinearOrientation(row: any[]): { strike: number, dip: number } | undefined {
     const strike = this.getCol(row, HeaderNames['Linear Orientation Trend']);
     const dip = this.getCol(row, HeaderNames['Linear Orientation Plunge']);
-    if (strike !== undefined && dip !== undefined) {
+    if (this.isNumeric(strike) && this.isNumeric(dip)) {
       return { strike: +strike, dip: +dip };
     }
     return undefined;
@@ -76,7 +76,7 @@ export class TableCSV {
   getPlanarOrientation(row: any[]): { strike: number, dip: number } | undefined {
     const strike = this.getCol(row, HeaderNames['Planar Orientation Strike']);
     const dip = this.getCol(row, HeaderNames['Planar Orientation Dip']);
-    if (strike !== undefined && dip !== undefined) {
+    if (this.isNumeric(strike) && this.isNumeric(dip)) {
       return { strike: +strike, dip: +dip };
     }
     return undefined;

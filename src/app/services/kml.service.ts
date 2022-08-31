@@ -47,8 +47,8 @@ export class KmlService {
         this.generatePopupContent(row),
         this.csvRecords.getRowColor(row),
         this.generateGeometry(row),
-        planarOrientation?.dip | linearOrientation?.dip,
-        planarOrientation?.strike | linearOrientation?.strike
+        planarOrientation?.dip || linearOrientation?.dip,
+        planarOrientation?.strike || linearOrientation?.strike
       );
     }).join('');
   }
@@ -64,28 +64,40 @@ export class KmlService {
 
   private generatePopupContent(row: any[]): string {
     const formation = this.csvRecords.getFormation(row);
+
     const notes = this.csvRecords.getCol(row, HeaderNames.Notes);
     const date = this.csvRecords.getCol(row, HeaderNames.Date);
+
     const planarOrientation = this.csvRecords.getPlanarOrientation(row);
     const linearOrientation = this.csvRecords.getLinearOrientation(row);
-    const type = this.getRowType(row);
-    const planMQ = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Quality']);
+
+    const planarFeature = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Planar Feature Type']);
+    const planarQuality = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Quality']);
     const planarFacing = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Facing']);
+
+    const linearFeature = this.csvRecords.getCol(row, HeaderNames['Linear Orientation Linear Feature Type']);
 
     return [
       formation ? `Unit: ${formation.replace('Tag:', '')}` : false,
-      type ? `Feature: ${type.toLocaleUpperCase()}` : false,
+      planarFeature ? `<hr>Planar Feature: ${this.titleCase(planarFeature)}` : false,
       planarOrientation ? `Strike: ${planarOrientation.strike}&deg;` : false,
       planarOrientation ? `Dip: ${planarOrientation.dip}&deg;` : false,
+      planarQuality ? `Measurement Quality: ${planarQuality}` : false,
+      planarFacing ? `Facing: ${planarFacing}` : false,
+      linearFeature ? `<hr>Linear Feature: ${this.titleCase(linearFeature)}` : false,
       linearOrientation ? `Trend: ${linearOrientation.strike}&deg;` : false,
       linearOrientation ? `Plunge: ${linearOrientation.dip}&deg;` : false,
-      planMQ ? `Measurement Quality: ${planMQ}` : false,
-      planarFacing ? `Facing ${planarFacing}` : false,
-      date ? `Date UTC: ${date}` : false,
+      date ? `<hr>Date UTC: ${date}` : false,
       notes ? `<hr>Notes: ${notes}` : false
     ].filter(e => e).join('<br>')
   }
 
+
+  private titleCase(str: string): string {
+    return str.split(' ').map(w => {
+      return w[0].toUpperCase() + w.substring(1);
+    }).join(' ');
+  }
 
   private getItemName(row: any[], rowIndex: number): string {
     const formation = this.csvRecords.getFormation(row) + '-' + rowIndex;
