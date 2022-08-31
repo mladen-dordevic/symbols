@@ -57,7 +57,7 @@ export class TableCSV {
   getRowColor(row: any[]): string {
     const tag = this.getFormation(row);
     const item = this.tagColors.find(e => e.tag === tag);
-    return item?.color || 'black';
+    return item?.color || '#ff00ff';
   }
 
   getFormation(row: any[]): string {

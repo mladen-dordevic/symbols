@@ -7,6 +7,7 @@ import { MapComponent } from './components/map/map.component';
 import { FormsModule } from '@angular/forms';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { AngularMaterialModule } from './angular-material.module';
+import { ColorPickerModule } from 'ngx-color-picker';
 
 
 @NgModule({
@@ -19,6 +20,7 @@ import { AngularMaterialModule } from './angular-material.module';
     FormsModule,
     AppRoutingModule,
     AngularMaterialModule,
+    ColorPickerModule,
     BrowserAnimationsModule,
   ],
   providers: [],

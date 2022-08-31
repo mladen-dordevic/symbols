@@ -139,8 +139,8 @@ export class KmlService {
     return noIcon + tags.map(tag => this.createStyle(tag.color)).join('');
   }
 
-  private colorName2aabbggrr(colorName: string): string {
-    const rgb = Colors[colorName];
+  private colorName2aabbggrr(colorHexHash: string): string {
+    const rgb = colorHexHash.replace('#', '');
     const p = rgb.split('');
     return ['ff', p[4], p[5], p[2], p[3], p[0], p[1]].join('');
   }

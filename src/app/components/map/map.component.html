@@ -38,14 +38,13 @@
         </mat-form-field>
         <mat-slide-toggle [(ngModel)]="createFolders">Group symbols to folders by Unit/Formation</mat-slide-toggle>
         <h3>Tag Colors</h3>
-        <mat-form-field *ngFor="let item of tagColors" appearance="fill" [style.backgroundColor]="item.color">
+        <mat-form-field *ngFor="let item of tagColors" appearance="fill" >
           <mat-label>{{item.tag}}</mat-label>
-          <mat-select [(ngModel)]="item.color" name="color">
-            <mat-option [style.backgroundColor]="'#'+color.value" *ngFor="let color of availableColors | keyvalue"
-              [value]="color.key">
-              {{color.key}}
-            </mat-option>
-          </mat-select>
+          <input matInput [value]="item.color" style="padding:5px 0"
+          [style.background]="item.color"
+          [cpAlphaChannel]="'disabled'"
+          [cpOutputFormat]="'hex'"
+          [(colorPicker)]="item.color"/>
         </mat-form-field>
       </mat-card-content>
       <mat-card-actions>

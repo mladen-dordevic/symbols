@@ -109,7 +109,7 @@ export class MapComponent implements OnInit {
       if (key.includes('Tag:')) {
         this.tagColors.push({
           tag: key,
-          color: randomColor
+          color: '#' + Colors[randomColor]
         });
       }
     });
