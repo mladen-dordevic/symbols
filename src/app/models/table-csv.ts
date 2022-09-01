@@ -1,4 +1,5 @@
 import { HeaderNames } from 'src/app/enum/header-names.enum';
+import { TagColor } from '../components/map/map.component';
 export interface LatLngAlt {
   lat: number;
   lng: number;
@@ -13,7 +14,7 @@ export class TableCSV {
   // headerNames = Object.keys(HeaderNames).filter((v) => isNaN(Number(v)));
   headerNames = [];
   headerOrder = [];
-  tagColors;
+  tagColors: TagColor[];
   rawData: string;
   data: [][] = [];
 

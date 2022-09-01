@@ -169,7 +169,7 @@ export class KmlService {
     const tags = [...this.csvRecords.tagColors];
     tags.push({
       color: '#000000',
-      unit: 'Default'
+      tag: 'Default'
     })
     const noIcon = '<Style id="sn_no_icon"><IconStyle><Icon></Icon></IconStyle><LabelStyle>		<scale>1.0</scale></LabelStyle></Style>';
     const folder = `<Style id="singleLine">

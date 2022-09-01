@@ -8,7 +8,12 @@ import { TableCSV } from 'src/app/models/table-csv';
 import { KMLServiceOptions } from 'src/app/models/kmlservice-options';
 import { VERSION } from '@env/version';
 import { read, utils } from 'xlsx';
-import { Colors } from 'src/app/enum/colors.enum';
+
+const STORAGE_COLOR_KEY = 'color-storage';
+export interface TagColor {
+  tag: string;
+  color: string;
+}
 
 declare var google;
 
@@ -33,9 +38,8 @@ export class MapComponent implements OnInit {
   kmlOptions: KMLServiceOptions;
   headerOrder = [];
   header = [];
-  tagColors = [];
-  availableColors = Colors;
-
+  tagColors: TagColor[] = [];
+  storedColors: TagColor[] = [];
 
   constructor(
     private iconService: IconService,
@@ -96,16 +100,11 @@ export class MapComponent implements OnInit {
     const out = [];
     out.push(this.header);
 
-    const colorsTmp = Object.keys(Colors);
-
-    this.header.forEach((key, index) => {
-      const randomColor = colorsTmp[Math.floor(colorsTmp.length * Math.random())];
-      const detColor = colorsTmp[this.tagColors.length];
-      if (key.includes('Tag:')) {
-        this.tagColors.push({
-          tag: key,
-          color: '#' + Colors[randomColor]
-        });
+    this.header.forEach((tag, index) => {
+      if (tag.includes('Tag:')) {
+        const storedColors = this.findStoredColor(tag);
+        const color = storedColors?.color || this.string2color(tag);
+        this.tagColors.push({ tag, color });
       }
     });
 
@@ -121,6 +120,17 @@ export class MapComponent implements OnInit {
       out.push(rowOut);
     })
     return out;
+  }
+
+  private string2color(str: string): string {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) + hash) + str.charCodeAt(i); /* hash * 33 + c */
+    }
+    const r = (hash & 0xFF0000) >> 16;
+    const g = (hash & 0x00FF00) >> 8;
+    const b = hash & 0x0000FF;
+    return '#' + ('0' + r.toString(16)).slice(-2) + ('0' + g.toString(16)).slice(-2) + ('0' + b.toString(16)).slice(-2);
   }
 
   parseCSV(file: File): Promise<any> {
@@ -239,5 +249,25 @@ export class MapComponent implements OnInit {
     const doc = this.kmlService.get(this.csvRecords, this.kmlOptions);
     var blob = new Blob([doc], { type: "text/plain;charset=utf-8" });
     saveAs(blob, this.kmlOptions.documentName + '.kml');
+    this.saveColors();
+  }
+
+  saveColors(): void {
+    const store = JSON.stringify(this.csvRecords.tagColors);
+    localStorage.setItem(STORAGE_COLOR_KEY, store);
+  }
+
+  setStoredColors(): void {
+    const res = localStorage.getItem(STORAGE_COLOR_KEY);
+    if (res) {
+      this.storedColors = <TagColor[]>JSON.parse(res);
+    }
+  }
+
+  findStoredColor(tagName: string): TagColor | undefined {
+    if (!this.storedColors.length) {
+      this.setStoredColors();
+    }
+    return this.storedColors.find(e => e.tag === tagName);
   }
 }
