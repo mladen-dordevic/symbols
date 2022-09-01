@@ -27,22 +27,15 @@ export class MapComponent implements OnInit {
   dip = 0;
   strike = 0;
   selected = null;
-
   showMap = false;
 
-  csvRecords: TableCSV
-
+  csvRecords: TableCSV;
+  kmlOptions: KMLServiceOptions;
   headerOrder = [];
   header = [];
   tagColors = [];
   availableColors = Colors;
-  symbolLength = 50;
-  symbolHeight = 25;
-  lineWidth = 6;
-  createFolders = false;
-  groupGeometry = false;
-  symbolElevation = this.symbolLength;
-  fileName = 'data';
+
 
   constructor(
     private iconService: IconService,
@@ -51,6 +44,7 @@ export class MapComponent implements OnInit {
     public ref: ChangeDetectorRef
   ) {
     this.csvRecords = new TableCSV();
+    this.kmlOptions = new KMLServiceOptions();
   }
 
   ngOnInit(): void {
@@ -242,15 +236,8 @@ export class MapComponent implements OnInit {
   }
 
   export() {
-    const doc = this.kmlService.get(this.csvRecords, {
-      documentName: this.fileName,
-      symbolLength: this.symbolLength,
-      symbolHeight: this.symbolHeight,
-      lineWidth: this.lineWidth,
-      createFolders: this.createFolders,
-      groupGeometry: this.groupGeometry
-    });
+    const doc = this.kmlService.get(this.csvRecords, this.kmlOptions);
     var blob = new Blob([doc], { type: "text/plain;charset=utf-8" });
-    saveAs(blob, this.fileName + '.kml');
+    saveAs(blob, this.kmlOptions.documentName + '.kml');
   }
 }

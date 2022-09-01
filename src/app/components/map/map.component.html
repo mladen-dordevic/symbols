@@ -19,27 +19,35 @@
         <h3>Setting for export</h3>
         <mat-form-field class="form-f">
           <mat-label>Symbol length [m]</mat-label>
-          <input matInput type="number" min="5" max="100" step="5" [(ngModel)]="symbolLength">
+          <input matInput type="number" min="5" max="100" step="5" [(ngModel)]="kmlOptions.symbolLength">
         </mat-form-field>
         <mat-form-field class="form-f">
           <mat-label>Symbol height [m]</mat-label>
-          <input matInput type="number" min="5" max="100" step="5" [(ngModel)]="symbolHeight">
+          <input matInput type="number" min="5" max="100" step="5" [(ngModel)]="kmlOptions.symbolHeight">
         </mat-form-field>
         <mat-form-field class="form-f">
           <mat-label>Symbol line thickness</mat-label>
-          <input matInput type="number" min="1" max="20" step="1" [(ngModel)]="lineWidth">
+          <input matInput type="number" min="1" max="20" step="1" [(ngModel)]="kmlOptions.lineWidth">
         </mat-form-field>
         <mat-form-field class="form-f">
           <mat-label>Filename</mat-label>
-          <input matInput [(ngModel)]="fileName">
+          <input matInput [(ngModel)]="kmlOptions.documentName">
+        </mat-form-field>
+        <mat-form-field class="form-f" appearance="none">
+          <mat-slide-toggle [(ngModel)]="kmlOptions.useAltitude">Use altitude column</mat-slide-toggle>
+          <textarea matInput hidden></textarea>
         </mat-form-field>
         <mat-divider></mat-divider>
 
         <h3>Group symbols to folders by</h3>
-
-        <mat-slide-toggle style="padding-right: 10px;" [(ngModel)]="createFolders">Unit/Formation</mat-slide-toggle>
-        <mat-slide-toggle [(ngModel)]="groupGeometry">Location</mat-slide-toggle>
-
+        <mat-form-field class="form-f" appearance="none">
+          <mat-slide-toggle [(ngModel)]="kmlOptions.groupTags">Unit/Formation</mat-slide-toggle>
+          <textarea matInput hidden></textarea>
+        </mat-form-field>
+        <mat-form-field class="form-f" appearance="none">
+          <mat-slide-toggle [(ngModel)]="kmlOptions.groupGeometry">Location</mat-slide-toggle>
+          <textarea matInput hidden></textarea>
+        </mat-form-field>
         <mat-divider></mat-divider>
 
         <h3>Tag Colors</h3>

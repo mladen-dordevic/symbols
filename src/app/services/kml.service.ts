@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HeaderNames } from '../enum/header-names.enum';
-import { TableCSV } from '../models/table-csv';
+import { LatLngAlt, Orientation, TableCSV } from '../models/table-csv';
 import { KMLServiceOptions } from '../models/kmlservice-options';
 
 enum BalloonLines {
@@ -17,6 +17,8 @@ enum BalloonLines {
   NOTES,
 }
 
+type AltitudeMode = 'clampToGround' | 'relativeToGround' | 'absolute';
+
 declare var google;
 
 @Injectable({
@@ -26,35 +28,28 @@ export class KmlService {
   private options: KMLServiceOptions
   private csvRecords: TableCSV
   private labels: string[] = [];
-
-  constructor() { }
+  private rowAltitudeMod: AltitudeMode;
+  constructor() {
+    this.options = new KMLServiceOptions();
+  }
 
   public get(csvRecords: TableCSV, options?: KMLServiceOptions): string {
     this.csvRecords = csvRecords
-    this.options = Object.assign(this.defaultOptions(), options);
+    this.options = Object.assign(this.options, options);
     const styles = this.createStyles();
 
-    const content = this.options.createFolders ?
+    const content = this.options.groupTags ?
       this.generateFolderString() :
       this.generatePlacemarkString(this.csvRecords.data);
 
     return this.createDocument(styles + content, this.options.documentName);
   }
 
-  private defaultOptions(): KMLServiceOptions {
-    const options = new KMLServiceOptions();
-    options.symbolHeight = 50;
-    options.symbolLength = 50;
-    options.lineWidth = 6;
-    options.documentName = 'file';
-    options.createFolders = false;
-    options.groupGeometry = false;
-    return options;
-  }
-
   private generatePlacemarkString(rows: any[]): string {
     return rows.map((row: any, rowIndex: number) => {
       this.labels = [];
+      const latLng = this.csvRecords.getLatLng(row);
+      this.rowAltitudeMod = this.getAltitudeMod(latLng);
       return this.createSymbol(
         this.getItemName(row, rowIndex),
         this.generatePopupContent(row),
@@ -151,21 +146,21 @@ export class KmlService {
 
     if (planarOrientation) {
       if (planarOrientation.dip === 90) {
-        out.push(...this.generateStrikeDip90Geometry(latLng.lat, latLng.lng, planarOrientation.dip, planarOrientation.strike));
+        out.push(...this.generateStrikeDip90Geometry(latLng, planarOrientation));
       }
       if (planarOrientation.dip === 0) {
-        out.push(...this.generateStrikeDip0Geometry(latLng.lat, latLng.lng, planarOrientation.dip, planarOrientation.strike));
+        out.push(...this.generateStrikeDip0Geometry(latLng, planarOrientation));
       }
-      out.push(...this.generateStrikeDipGeometry(latLng.lat, latLng.lng, planarOrientation.dip, planarOrientation.strike));
+      out.push(...this.generateStrikeDipGeometry(latLng, planarOrientation));
     }
     if (linearOrientation) {
       if (linearOrientation.dip === 90) {
-        // out.push(...this.generateStrikeDip90Geometry(latLng.lat, latLng.lng, linearOrientation.dip, linearOrientation.strike));
+        // out.push(...this.generateStrikeDip90Geometry(latLng, linearOrientation.dip, linearOrientation.strike));
       }
       if (linearOrientation.dip === 0) {
-        // out.push(...this.generateStrikeDip0Geometry(latLng.lat, latLng.lng, linearOrientation.dip, linearOrientation.strike));
+        // out.push(...this.generateStrikeDip0Geometry(latLng, linearOrientation.dip, linearOrientation.strike));
       }
-      out.push(...this.generateLineationGeometry(latLng.lat, latLng.lng, linearOrientation.dip, linearOrientation.strike));
+      out.push(...this.generateLineationGeometry(latLng, linearOrientation));
     }
     return this.createMultiGeometry(out);
   }
@@ -229,9 +224,10 @@ export class KmlService {
     const linearOrientation = this.csvRecords.getLinearOrientation(row);
     const noIcon = (!planarOrientation && !linearOrientation) ? 'dot_' : '';
 
+    const showDescription = this.options.groupGeometry ? '' : `<description><![CDATA[${description}]]></description>`;
     const content = `<Placemark>
       <name>${name}</name>
-      <description><![CDATA[${description}]]></description>
+      ${showDescription}
       <styleUrl>#_${noIcon}${color}</styleUrl>
       ${geometry}
       </Placemark>${this.labels.join()}`;
@@ -248,7 +244,7 @@ export class KmlService {
       <name>${dip}</name>
       <styleUrl>#sn_no_icon</styleUrl>
       <Point>
-        <altitudeMode>relativeToGround</altitudeMode>
+        <altitudeMode>${this.rowAltitudeMod}</altitudeMode>
         <coordinates>${coordinates}</coordinates>
       </Point>
     </Placemark>`: '';
@@ -264,137 +260,158 @@ export class KmlService {
     </Folder>`
   }
 
-  private generateStrikeDipGeometry(lat: number, lng: number, dip: number, strike: number): string[] {
-    const unit = this.options.symbolLength / 2;
-    const pm = new google.maps.LatLng(lat, lng);
-    const p1 = google.maps.geometry.spherical.computeOffset(pm, unit, strike);
-    const p2 = google.maps.geometry.spherical.computeOffset(pm, unit, strike + 180);
-    const p3 = google.maps.geometry.spherical.computeOffset(pm, unit / 2 * Math.cos(dip * Math.PI / 180), strike + 90);
+  private getAltitudeMod(latLngAlt: LatLngAlt): AltitudeMode {
+    return this.options.useAltitude ? (latLngAlt.alt ? 'absolute' : 'relativeToGround') : 'relativeToGround';
+  }
 
-    const alt = this.options.symbolHeight - unit / 2 * Math.sin(dip * Math.PI / 180);
+  private getAltitude(latLngAlt: LatLngAlt): number {
+    return this.options.useAltitude ? (latLngAlt.alt ? latLngAlt.alt : this.options.symbolHeight) : this.options.symbolHeight;
+  }
+
+  private generateStrikeDipGeometry(latLngAlt: LatLngAlt, orientation: Orientation): string[] {
+    const unit = this.options.symbolLength / 2;
+    const pm = new google.maps.LatLng(latLngAlt.lat, latLngAlt.lng);
+    const p1 = google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike);
+    const p2 = google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike + 180);
+    const p3 = google.maps.geometry.spherical.computeOffset(pm, unit / 2 * Math.cos(orientation.dip * Math.PI / 180), orientation.strike + 90);
+
+    const altitude = this.getAltitude(latLngAlt);
+
+    const alt = altitude - unit / 2 * Math.sin(orientation.dip * Math.PI / 180);
     const coordinates = `${p3.lng()},${p3.lat()},${alt}`;
-    this.labels.push(this.createLabel(coordinates, dip));
+    this.labels.push(this.createLabel(coordinates, orientation.dip));
 
     return [
       this.createLinearString([
-        [p1.lng(), p1.lat(), this.options.symbolHeight],
-        [pm.lng(), pm.lat(), this.options.symbolHeight],
+        [p1.lng(), p1.lat(), altitude],
+        [pm.lng(), pm.lat(), altitude],
         [p3.lng(), p3.lat(), alt],
-        [pm.lng(), pm.lat(), this.options.symbolHeight],
-        [p2.lng(), p2.lat(), this.options.symbolHeight]
-      ])
+        [pm.lng(), pm.lat(), altitude],
+        [p2.lng(), p2.lat(), altitude]
+      ], this.rowAltitudeMod)
     ];
 
   }
 
   // Crossed circle with only a strike, same height
-  private generateStrikeDip0Geometry(lat: number, lng: number, dip: number, strike: number): string[] {
+  private generateStrikeDip0Geometry(latLngAlt: LatLngAlt, orientation: Orientation): string[] {
     const unit = this.options.symbolLength / 2;
-    const pm = new google.maps.LatLng(lat, lng);
-    const p1 = google.maps.geometry.spherical.computeOffset(pm, unit, strike);
-    const p2 = google.maps.geometry.spherical.computeOffset(pm, unit, strike + 90);
-    const p3 = google.maps.geometry.spherical.computeOffset(pm, unit, strike + 180);
-    const p4 = google.maps.geometry.spherical.computeOffset(pm, unit, strike + 270);
+    const pm = new google.maps.LatLng(latLngAlt.lat, latLngAlt.lng);
+    const p1 = google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike);
+    const p2 = google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike + 90);
+    const p3 = google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike + 180);
+    const p4 = google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike + 270);
 
     let circles = [];
     for (let step = 0; step <= 360; step += 10) {
-      circles.push(google.maps.geometry.spherical.computeOffset(pm, unit, strike + step));
+      circles.push(google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike + step));
     }
 
-    circles = circles.map(c => [c.lng(), c.lat(), this.options.symbolHeight]);
+    const altitude = this.getAltitude(latLngAlt);
+
+
+    circles = circles.map(c => [c.lng(), c.lat(), altitude]);
 
     return [
       this.createLinearString([
-        [p1.lng(), p1.lat(), this.options.symbolHeight],
-        [p3.lng(), p3.lat(), this.options.symbolHeight]
-      ]),
+        [p1.lng(), p1.lat(), altitude],
+        [p3.lng(), p3.lat(), altitude]
+      ], this.rowAltitudeMod),
       this.createLinearString([
-        [p2.lng(), p2.lat(), this.options.symbolHeight],
-        [p4.lng(), p4.lat(), this.options.symbolHeight]
-      ]),
+        [p2.lng(), p2.lat(), altitude],
+        [p4.lng(), p4.lat(), altitude]
+      ], this.rowAltitudeMod),
       this.createLinearString(circles)
     ];
   }
 
-  private generateStrikeDip90Geometry(lat: number, lng: number, dip: number, strike: number): string[] {
+  private generateStrikeDip90Geometry(latLngAlt: LatLngAlt, orientation: Orientation): string[] {
     const unit = this.options.symbolLength / 2;
-    const pm = new google.maps.LatLng(lat, lng);
-    const p1 = google.maps.geometry.spherical.computeOffset(pm, unit, strike);
-    const p2 = google.maps.geometry.spherical.computeOffset(pm, unit, strike + 180);
+    const pm = new google.maps.LatLng(latLngAlt.lat, latLngAlt.lng);
+    const p1 = google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike);
+    const p2 = google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike + 180);
 
 
-    const p1a = google.maps.geometry.spherical.computeOffset(pm, unit / 2, strike + 90);
-    const p2a = google.maps.geometry.spherical.computeOffset(pm, unit / 2, strike + 270);
+    const p1a = google.maps.geometry.spherical.computeOffset(pm, unit / 2, orientation.strike + 90);
+    const p2a = google.maps.geometry.spherical.computeOffset(pm, unit / 2, orientation.strike + 270);
+    const altitude = this.getAltitude(latLngAlt);
+
+
+
 
     return [
       this.createLinearString([
-        [p1.lng(), p1.lat(), this.options.symbolHeight],
-        [p2.lng(), p2.lat(), this.options.symbolHeight]
-      ]),
+        [p1.lng(), p1.lat(), altitude],
+        [p2.lng(), p2.lat(), altitude]
+      ], this.rowAltitudeMod),
       this.createLinearString([
-        [p1a.lng(), p1a.lat(), this.options.symbolHeight],
-        [p2a.lng(), p2a.lat(), this.options.symbolHeight]
-      ]),
+        [p1a.lng(), p1a.lat(), altitude],
+        [p2a.lng(), p2a.lat(), altitude]
+      ], this.rowAltitudeMod),
       this.createLinearString([
-        [pm.lng(), pm.lat(), this.options.symbolHeight],
-        [pm.lng(), pm.lat(), this.options.symbolHeight - unit / 2]
-      ])
+        [pm.lng(), pm.lat(), altitude],
+        [pm.lng(), pm.lat(), altitude - unit / 2]
+      ], this.rowAltitudeMod)
     ];
   }
 
   // Line
-  private generateFoliationGeometry(lat: number, lng: number, dip: number, strike: number): string {
+  private generateFoliationGeometry(latLngAlt: LatLngAlt, orientation: Orientation): string {
     const unit = this.options.symbolLength / 2;
-    const pm = new google.maps.LatLng(lat, lng);
-    const p1 = google.maps.geometry.spherical.computeOffset(pm, unit, strike);
-    const p1a = google.maps.geometry.spherical.computeOffset(pm, unit / 2, strike);
-    const p2 = google.maps.geometry.spherical.computeOffset(pm, unit, strike + 180);
-    const p2a = google.maps.geometry.spherical.computeOffset(pm, unit / 2, strike + 180);
-    const p3 = google.maps.geometry.spherical.computeOffset(pm, unit / 2 * Math.cos(dip * Math.PI / 180), strike + 90);
+    const pm = new google.maps.LatLng(latLngAlt.lat, latLngAlt.lng);
+    const p1 = google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike);
+    const p1a = google.maps.geometry.spherical.computeOffset(pm, unit / 2, orientation.strike);
+    const p2 = google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike + 180);
+    const p2a = google.maps.geometry.spherical.computeOffset(pm, unit / 2, orientation.strike + 180);
+    const p3 = google.maps.geometry.spherical.computeOffset(pm, unit / 2 * Math.cos(orientation.dip * Math.PI / 180), orientation.strike + 90);
 
-    const alt = this.options.symbolHeight - unit / 2 * Math.sin(dip * Math.PI / 180);
+    const altitude = this.getAltitude(latLngAlt);
+
+
+    const alt = altitude - unit / 2 * Math.sin(orientation.dip * Math.PI / 180);
     const coordinates = `${p3.lng()},${p3.lat()},${alt}`;
-    this.labels.push(this.createLabel(coordinates, dip));
+    this.labels.push(this.createLabel(coordinates, orientation.dip));
 
     return this.createLinearString([
-      [p1.lng(), p1.lat(), this.options.symbolHeight],
-      [p1a.lng(), p1a.lat(), this.options.symbolHeight],
+      [p1.lng(), p1.lat(), altitude],
+      [p1a.lng(), p1a.lat(), altitude],
       [p3.lng(), p3.lat(), alt],
-      [p2a.lng(), p2a.lat(), this.options.symbolHeight],
-      [p1a.lng(), p1a.lat(), this.options.symbolHeight],
-      [p2a.lng(), p2a.lat(), this.options.symbolHeight],
-      [p2.lng(), p2.lat(), this.options.symbolHeight]
-    ]);
+      [p2a.lng(), p2a.lat(), altitude],
+      [p1a.lng(), p1a.lat(), altitude],
+      [p2a.lng(), p2a.lat(), altitude],
+      [p2.lng(), p2.lat(), altitude]
+    ], this.rowAltitudeMod);
   }
 
   // Line with the arrow at one end
-  private generateLineationGeometry(lat: number, lng: number, dip: number, strike: number): string[] {
+  private generateLineationGeometry(latLngAlt: LatLngAlt, orientation: Orientation): string[] {
     const unit = this.options.symbolLength / 4;
-    const pm = new google.maps.LatLng(lat, lng);
-    const f = Math.cos(dip * Math.PI / 180);
-    const p1 = google.maps.geometry.spherical.computeOffset(pm, f * unit, strike + 0);
-    const p2 = google.maps.geometry.spherical.computeOffset(pm, f * unit, strike + 180);
-    const pArr = google.maps.geometry.spherical.computeOffset(pm, f * unit * 0.7, strike + 0);
-    const p2a = google.maps.geometry.spherical.computeOffset(pArr, f * unit * 0.1, strike - 90);
-    const p2b = google.maps.geometry.spherical.computeOffset(pArr, f * unit * 0.1, strike + 90);
+    const pm = new google.maps.LatLng(latLngAlt.lat, latLngAlt.lng);
+    const f = Math.cos(orientation.dip * Math.PI / 180);
+    const p1 = google.maps.geometry.spherical.computeOffset(pm, f * unit, orientation.strike + 0);
+    const p2 = google.maps.geometry.spherical.computeOffset(pm, f * unit, orientation.strike + 180);
+    const pArr = google.maps.geometry.spherical.computeOffset(pm, f * unit * 0.7, orientation.strike + 0);
+    const p2a = google.maps.geometry.spherical.computeOffset(pArr, f * unit * 0.1, orientation.strike - 90);
+    const p2b = google.maps.geometry.spherical.computeOffset(pArr, f * unit * 0.1, orientation.strike + 90);
+    const altitude = this.getAltitude(latLngAlt);
 
-    const alt = Math.sin(dip * Math.PI / 180);
-    const coordinates = `${p1.lng()},${p1.lat()},${this.options.symbolHeight - unit * alt}`;
-    this.labels.push(this.createLabel(coordinates, dip));
+    const alt = Math.sin(orientation.dip * Math.PI / 180);
+    const coordinates = `${p1.lng()},${p1.lat()},${altitude - unit * alt}`;
+    this.labels.push(this.createLabel(coordinates, orientation.dip));
     return [
       this.createLinearString([
-        [p1.lng(), p1.lat(), this.options.symbolHeight - unit * alt],
-        [p2.lng(), p2.lat(), this.options.symbolHeight + unit * alt]
-      ]),
+        [p1.lng(), p1.lat(), altitude - unit * alt],
+        [p2.lng(), p2.lat(), altitude + unit * alt]
+      ], this.rowAltitudeMod),
       this.createLinearString([
-        [p2a.lng(), p2a.lat(), this.options.symbolHeight - unit * 0.7 * alt],
-        [p1.lng(), p1.lat(), this.options.symbolHeight - unit * alt],
-        [p2b.lng(), p2b.lat(), this.options.symbolHeight - unit * 0.7 * alt]
-      ])
+        [p2a.lng(), p2a.lat(), altitude - unit * 0.7 * alt],
+        [p1.lng(), p1.lat(), altitude - unit * alt],
+        [p2b.lng(), p2b.lat(), altitude - unit * 0.7 * alt]
+      ], this.rowAltitudeMod)
     ];
   }
 
-  private createLinearString(coords: any[], altitudeMode: 'clampToGround' | 'relativeToGround' = 'relativeToGround'): string {
+  private createLinearString(coords: any[], altitudeMode: AltitudeMode = 'relativeToGround'): string {
     return `<LineString>
       <tesselate>1</tesselate>
       <altitudeMode>${altitudeMode}</altitudeMode>

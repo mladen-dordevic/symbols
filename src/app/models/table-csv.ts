@@ -1,5 +1,14 @@
 import { HeaderNames } from 'src/app/enum/header-names.enum';
+export interface LatLngAlt {
+  lat: number;
+  lng: number;
+  alt: number;
+}
 
+export interface Orientation {
+  strike: number;
+  dip: number;
+}
 export class TableCSV {
   // headerNames = Object.keys(HeaderNames).filter((v) => isNaN(Number(v)));
   headerNames = [];
@@ -62,7 +71,7 @@ export class TableCSV {
     return this.headerNames.find((tag, index) => tag.includes('Tag:') && row[index] && row[index].trim() === 'X');
   }
 
-  getLinearOrientation(row: any[]): { strike: number, dip: number } | undefined {
+  getLinearOrientation(row: any[]): Orientation | undefined {
     const strike = this.getCol(row, HeaderNames['Linear Orientation Trend']);
     const dip = this.getCol(row, HeaderNames['Linear Orientation Plunge']);
     if (this.isNumeric(strike) && this.isNumeric(dip)) {
@@ -71,7 +80,7 @@ export class TableCSV {
     return undefined;
   }
 
-  getPlanarOrientation(row: any[]): { strike: number, dip: number } | undefined {
+  getPlanarOrientation(row: any[]): Orientation | undefined {
     const strike = this.getCol(row, HeaderNames['Planar Orientation Strike']);
     const dip = this.getCol(row, HeaderNames['Planar Orientation Dip']);
     if (this.isNumeric(strike) && this.isNumeric(dip)) {
@@ -82,7 +91,7 @@ export class TableCSV {
 
   getLine(row: any[]): number[][] | undefined {
     let val = this.getCol(row, HeaderNames['Real World Coordinates']);
-    if (val.includes('LINESTRING')) {
+    if (val?.includes('LINESTRING')) {
       return val.trim()
         .replace('LINESTRING (', '')
         .replace(')', '')
@@ -92,15 +101,16 @@ export class TableCSV {
     return undefined;
   }
 
-  getLatLng(row: any[]): { lat: number, lng: number } | undefined {
+  getLatLng(row: any[]): LatLngAlt | undefined {
     const lat = this.getCol(row, HeaderNames.Latitude);
     const lng = this.getCol(row, HeaderNames.Longitude);
+    const alt = this.getCol(row, HeaderNames['Altitude(m)']);
     if (lat !== undefined && lng !== undefined) {
-      return { lat: +lat, lng: +lng };
+      return { lat: +lat, lng: +lng, alt: +alt };
     }
     const line = this.getLine(row);
     if (line[0]) {
-      return { lat: line[0][1], lng: line[0][0] };
+      return { lat: line[0][1], lng: line[0][0], alt: 0 };
     }
     return undefined;
   }
