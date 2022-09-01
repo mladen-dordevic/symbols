@@ -40,6 +40,7 @@ export class MapComponent implements OnInit {
   symbolHeight = 25;
   lineWidth = 6;
   createFolders = false;
+  groupGeometry = false;
   symbolElevation = this.symbolLength;
   fileName = 'data';
 
@@ -246,7 +247,8 @@ export class MapComponent implements OnInit {
       symbolLength: this.symbolLength,
       symbolHeight: this.symbolHeight,
       lineWidth: this.lineWidth,
-      createFolders: this.createFolders
+      createFolders: this.createFolders,
+      groupGeometry: this.groupGeometry
     });
     var blob = new Blob([doc], { type: "text/plain;charset=utf-8" });
     saveAs(blob, this.fileName + '.kml');

@@ -1,9 +1,7 @@
 <mat-tab-group (selectedIndexChange)="tabSwitched($event)">
   <mat-tab label="Table">
     <mat-card>
-      <mat-card-header>
-        <mat-card-title>Instructions</mat-card-title>
-      </mat-card-header>
+      <mat-card-title>Instructions</mat-card-title>
       <mat-card-content>
         <p>
           Symbols inputs a StraboSpot xls file of structural data from field stations and outputs a Google Earth KML
@@ -15,11 +13,10 @@
       </mat-card-content>
     </mat-card>
     <mat-card *ngIf="csvRecords.data.length">
-      <mat-card-header>
-        <mat-card-title>Export to KML</mat-card-title>
-      </mat-card-header>
+      <mat-card-title>Export to KML</mat-card-title>
       <mat-card-content>
-        <p>Setting for export</p>
+
+        <h3>Setting for export</h3>
         <mat-form-field class="form-f">
           <mat-label>Symbol length [m]</mat-label>
           <input matInput type="number" min="5" max="100" step="5" [(ngModel)]="symbolLength">
@@ -36,15 +33,20 @@
           <mat-label>Filename</mat-label>
           <input matInput [(ngModel)]="fileName">
         </mat-form-field>
-        <mat-slide-toggle [(ngModel)]="createFolders">Group symbols to folders by Unit/Formation</mat-slide-toggle>
+        <mat-divider></mat-divider>
+
+        <h3>Group symbols to folders by</h3>
+
+        <mat-slide-toggle style="padding-right: 10px;" [(ngModel)]="createFolders">Unit/Formation</mat-slide-toggle>
+        <mat-slide-toggle [(ngModel)]="groupGeometry">Location</mat-slide-toggle>
+
+        <mat-divider></mat-divider>
+
         <h3>Tag Colors</h3>
-        <mat-form-field *ngFor="let item of tagColors" appearance="fill" >
+        <mat-form-field *ngFor="let item of tagColors" appearance="fill">
           <mat-label>{{item.tag}}</mat-label>
-          <input matInput [value]="item.color" style="padding:5px 0"
-          [style.background]="item.color"
-          [cpAlphaChannel]="'disabled'"
-          [cpOutputFormat]="'hex'"
-          [(colorPicker)]="item.color"/>
+          <input matInput [value]="item.color" style="padding:5px 0" [style.background]="item.color"
+            [cpAlphaChannel]="'disabled'" [cpOutputFormat]="'hex'" [(colorPicker)]="item.color" />
         </mat-form-field>
       </mat-card-content>
       <mat-card-actions>

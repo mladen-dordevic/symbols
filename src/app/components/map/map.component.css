@@ -32,3 +32,8 @@ table {
 .invalid {
   background-color: #ff00001f;
 }
+
+mat-divider {
+  padding-top: 15px;
+  margin-top: 15px;
+}

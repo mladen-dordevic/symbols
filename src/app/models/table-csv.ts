@@ -1,6 +1,4 @@
 import { HeaderNames } from 'src/app/enum/header-names.enum';
-import { Colors } from 'src/app/enum/colors.enum';
-import { DipDirection } from 'src/app/enum/dip-direction.enum';
 
 export class TableCSV {
   // headerNames = Object.keys(HeaderNames).filter((v) => isNaN(Number(v)));
@@ -57,7 +55,7 @@ export class TableCSV {
   getRowColor(row: any[]): string {
     const tag = this.getFormation(row);
     const item = this.tagColors.find(e => e.tag === tag);
-    return item?.color || '#ff00ff';
+    return item?.color || '#000000';
   }
 
   getFormation(row: any[]): string {

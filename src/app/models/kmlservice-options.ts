@@ -3,5 +3,6 @@ export class KMLServiceOptions {
   symbolHeight: number
   lineWidth: number;
   createFolders: boolean;
+  groupGeometry: boolean
   documentName: string;
 }

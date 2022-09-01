@@ -1,8 +1,21 @@
 import { Injectable } from '@angular/core';
 import { HeaderNames } from '../enum/header-names.enum';
-import { Colors } from '../enum/colors.enum';
 import { TableCSV } from '../models/table-csv';
 import { KMLServiceOptions } from '../models/kmlservice-options';
+
+enum BalloonLines {
+  FORMATION,
+  PLANAR_FEATURE,
+  PLANAR_ORIENTATION_STRIKE,
+  PLANAR_ORIENTATION_DIP,
+  PLANAR_QUALITY,
+  PLANAR_FACING,
+  LINEAR_FEATURE,
+  LINEAR_ORIENTATION_TREND,
+  LINEAR_ORIENTATION_PLUNGE,
+  DATE,
+  NOTES,
+}
 
 declare var google;
 
@@ -12,7 +25,7 @@ declare var google;
 export class KmlService {
   private options: KMLServiceOptions
   private csvRecords: TableCSV
-  private labelCoords = '';
+  private labels: string[] = [];
 
   constructor() { }
 
@@ -35,20 +48,19 @@ export class KmlService {
     options.lineWidth = 6;
     options.documentName = 'file';
     options.createFolders = false;
+    options.groupGeometry = false;
     return options;
   }
 
   private generatePlacemarkString(rows: any[]): string {
     return rows.map((row: any, rowIndex: number) => {
-      const planarOrientation = this.csvRecords.getPlanarOrientation(row);
-      const linearOrientation = this.csvRecords.getLinearOrientation(row);
+      this.labels = [];
       return this.createSymbol(
         this.getItemName(row, rowIndex),
         this.generatePopupContent(row),
         this.csvRecords.getRowColor(row),
         this.generateGeometry(row),
-        planarOrientation?.dip || linearOrientation?.dip,
-        planarOrientation?.strike || linearOrientation?.strike
+        row
       );
     }).join('');
   }
@@ -77,21 +89,38 @@ export class KmlService {
 
     const linearFeature = this.csvRecords.getCol(row, HeaderNames['Linear Orientation Linear Feature Type']);
 
-    return [
+    let out = [
       formation ? `Unit: ${formation.replace('Tag:', '')}` : false,
-      planarFeature ? `<hr>Planar Feature: ${this.titleCase(planarFeature)}` : false,
+      planarFeature ? `Planar Feature: ${this.titleCase(planarFeature)}` : false,
       planarOrientation ? `Strike: ${planarOrientation.strike}&deg;` : false,
       planarOrientation ? `Dip: ${planarOrientation.dip}&deg;` : false,
       planarQuality ? `Measurement Quality: ${planarQuality}` : false,
       planarFacing ? `Facing: ${planarFacing}` : false,
-      linearFeature ? `<hr>Linear Feature: ${this.titleCase(linearFeature)}` : false,
+      linearFeature ? `Linear Feature: ${this.titleCase(linearFeature)}` : false,
       linearOrientation ? `Trend: ${linearOrientation.strike}&deg;` : false,
       linearOrientation ? `Plunge: ${linearOrientation.dip}&deg;` : false,
-      date ? `<hr>Date UTC: ${date}` : false,
-      notes ? `<hr>Notes: ${notes}` : false
-    ].filter(e => e).join('<br>')
+      date ? `Date UTC: ${date}` : false,
+      notes ? `Notes: ${notes}` : false
+    ];
+    out = this.beforeMeExist(out, BalloonLines.PLANAR_FEATURE);
+    out = this.beforeMeExist(out, BalloonLines.LINEAR_FEATURE);
+    out = this.beforeMeExist(out, BalloonLines.DATE);
+    out = this.beforeMeExist(out, BalloonLines.NOTES);
+    return out.filter(e => e).join('<br>')
   }
 
+  private beforeMeExist(entries: any[], index: number): any[] {
+    if (!entries[index]) {
+      return entries;
+    }
+    for (let i = 0; i < index; i += 1) {
+      if (entries[i] && entries[index]) {
+        entries[index] = '<hr>' + entries[index];
+        return entries;
+      }
+    }
+    return entries;
+  }
 
   private titleCase(str: string): string {
     return str.split(' ').map(w => {
@@ -103,10 +132,6 @@ export class KmlService {
     const formation = this.csvRecords.getFormation(row) + '-' + rowIndex;
     const name = this.csvRecords.getCol(row, HeaderNames.Name);
     return name || formation;
-  }
-
-  private getRowType(row: any[]): string {
-    return this.csvRecords.getCol(row, HeaderNames['Planar Orientation Planar Feature Type']) || this.csvRecords.getCol(row, HeaderNames['Linear Orientation Linear Feature Type']) || '';
   }
 
   private generateGeometry(row: any[]): string {
@@ -146,9 +171,23 @@ export class KmlService {
   }
 
   private createStyles(): string {
-    const tags = this.csvRecords.tagColors;
+    const tags = [...this.csvRecords.tagColors];
+    tags.push({
+      color: '#000000',
+      unit: 'Default'
+    })
     const noIcon = '<Style id="sn_no_icon"><IconStyle><Icon></Icon></IconStyle><LabelStyle>		<scale>1.0</scale></LabelStyle></Style>';
-    return noIcon + tags.map(tag => this.createStyle(tag.color)).join('');
+    const folder = `<Style id="singleLine">
+        <ListStyle>
+          <listItemType>checkHideChildren</listItemType>
+          <bgColor>00ff00ff</bgColor>
+          <maxSnippetLines>1</maxSnippetLines>
+          <ItemIcon>
+            <href>${document.location.href}assets/icon.png</href>
+          </ItemIcon>
+        </ListStyle>
+      </Style>`
+    return folder + noIcon + tags.map(tag => this.createStyle(tag.color)).join('');
   }
 
   private colorName2aabbggrr(colorHexHash: string): string {
@@ -185,33 +224,41 @@ export class KmlService {
   </Document></kml>`;
   }
 
-  private createSymbol(name: string, description: string, color: string, geometry: string, dip: number | undefined, strike: number | undefined): string {
-    const label = this.createLabel(dip);
-    const noIcon = (dip === strike && dip === undefined) ? 'dot_' : '';
-    return `<Placemark>
-        <name>${name}</name>
-        <description><![CDATA[${description}]]></description>
-        <styleUrl>#_${noIcon}${color}</styleUrl>
-        ${geometry}
+  private createSymbol(name: string, description: string, color: string, geometry: string, row: any[]): string {
+    const planarOrientation = this.csvRecords.getPlanarOrientation(row);
+    const linearOrientation = this.csvRecords.getLinearOrientation(row);
+    const noIcon = (!planarOrientation && !linearOrientation) ? 'dot_' : '';
 
-      </Placemark>${label}
-      `;
+    const content = `<Placemark>
+      <name>${name}</name>
+      <description><![CDATA[${description}]]></description>
+      <styleUrl>#_${noIcon}${color}</styleUrl>
+      ${geometry}
+      </Placemark>${this.labels.join()}`;
+
+    if (this.options.groupGeometry) {
+      return this.createFolder(name, '0', content, description, 'singleLine');
+    } else {
+      return content;
+    }
   }
 
-  private createLabel(dip: number | undefined): string {
+  private createLabel(coordinates: string, dip: number | undefined): string {
     return dip ? `<Placemark>
       <name>${dip}</name>
       <styleUrl>#sn_no_icon</styleUrl>
       <Point>
         <altitudeMode>relativeToGround</altitudeMode>
-        <coordinates>${this.labelCoords}</coordinates>
+        <coordinates>${coordinates}</coordinates>
       </Point>
     </Placemark>`: '';
   }
 
-  private createFolder(folderName: string, open = '0', content: string): string {
+  private createFolder(folderName: string, open = '0', content: string, description: string = '', style: string = ''): string {
     return `<Folder>
       <name>${folderName}</name>
+      <styleUrl>#${style}</styleUrl>
+      <description><![CDATA[${description}]]></description>
       <open>${open}</open>
       ${content}
     </Folder>`
@@ -225,7 +272,8 @@ export class KmlService {
     const p3 = google.maps.geometry.spherical.computeOffset(pm, unit / 2 * Math.cos(dip * Math.PI / 180), strike + 90);
 
     const alt = this.options.symbolHeight - unit / 2 * Math.sin(dip * Math.PI / 180);
-    this.labelCoords = `${p3.lng()},${p3.lat()},${alt}`;
+    const coordinates = `${p3.lng()},${p3.lat()},${alt}`;
+    this.labels.push(this.createLabel(coordinates, dip));
 
     return [
       this.createLinearString([
@@ -305,8 +353,8 @@ export class KmlService {
     const p3 = google.maps.geometry.spherical.computeOffset(pm, unit / 2 * Math.cos(dip * Math.PI / 180), strike + 90);
 
     const alt = this.options.symbolHeight - unit / 2 * Math.sin(dip * Math.PI / 180);
-    this.labelCoords = `${p3.lng()},${p3.lat()},${alt}`;
-
+    const coordinates = `${p3.lng()},${p3.lat()},${alt}`;
+    this.labels.push(this.createLabel(coordinates, dip));
 
     return this.createLinearString([
       [p1.lng(), p1.lat(), this.options.symbolHeight],
@@ -331,8 +379,8 @@ export class KmlService {
     const p2b = google.maps.geometry.spherical.computeOffset(pArr, f * unit * 0.1, strike + 90);
 
     const alt = Math.sin(dip * Math.PI / 180);
-    this.labelCoords = `${p1.lng()},${p1.lat()},${this.options.symbolHeight - unit * alt}`;
-
+    const coordinates = `${p1.lng()},${p1.lat()},${this.options.symbolHeight - unit * alt}`;
+    this.labels.push(this.createLabel(coordinates, dip));
     return [
       this.createLinearString([
         [p1.lng(), p1.lat(), this.options.symbolHeight - unit * alt],
