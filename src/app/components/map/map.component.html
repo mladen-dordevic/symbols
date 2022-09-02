@@ -37,6 +37,10 @@
           <mat-slide-toggle [(ngModel)]="kmlOptions.useAltitude">Use altitude column</mat-slide-toggle>
           <textarea matInput hidden></textarea>
         </mat-form-field>
+        <mat-form-field class="form-f" *ngIf="kmlOptions.useAltitude">
+          <mat-label>Google Elevation API key</mat-label>
+          <input matInput [(ngModel)]="kmlOptions.googleMapsElevationApi">
+        </mat-form-field>
         <mat-divider></mat-divider>
 
         <h3>Group symbols to folders by</h3>

@@ -69,6 +69,9 @@ export class MapComponent implements OnInit {
     const file: File = $event.srcElement.files[0];
     console.log(file);
     let res = null;
+    if (!file) {
+      return;
+    }
     if (file.type === 'text/csv') {
       res = await this.parseCSV(file);
     }
@@ -212,8 +215,8 @@ export class MapComponent implements OnInit {
     }, 300);
   }
 
-  export() {
-    const doc = this.kmlService.get(this.csvRecords, this.kmlOptions);
+  async export() {
+    const doc = await this.kmlService.get(this.csvRecords, this.kmlOptions);
     var blob = new Blob([doc], { type: "text/plain;charset=utf-8" });
     saveAs(blob, this.kmlOptions.documentName + '.kml');
     this.csvRecords.saveColors();

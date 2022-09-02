@@ -48,8 +48,12 @@ export class TableCSV {
   }
 
   getCol(row: any[], headerName: HeaderNames): string {
-    const index = this.headerNames.indexOf(headerName);
+    const index = this.getColIndex(headerName);
     return row[this.headerOrder.indexOf(index)];
+  }
+
+  getColIndex(headerName: HeaderNames): number {
+    return this.headerNames.indexOf(headerName);
   }
 
   validateCellType(value: any, colIndex: number): boolean | null {
@@ -117,18 +121,18 @@ export class TableCSV {
     return undefined;
   }
 
-  getLatLng(row: any[]): LatLngAlt | undefined {
+  getLatLng(row: any[]): LatLngAlt {
     const lat = this.getCol(row, HeaderNames.Latitude);
     const lng = this.getCol(row, HeaderNames.Longitude);
     const alt = this.getCol(row, HeaderNames['Altitude(m)']);
-    if (lat !== undefined && lng !== undefined) {
+    if (this.isNumeric(lat) && this.isNumeric(lng)) {
       return { lat: +lat, lng: +lng, alt: +alt };
     }
     const line = this.getLine(row);
-    if (line[0]) {
+    if (line && line[0] && this.isNumeric(line[0][1]) && this.isNumeric(line[0][0])) {
       return { lat: line[0][1], lng: line[0][0], alt: 0 };
     }
-    return undefined;
+    return { lat: undefined, lng: undefined, alt: undefined };
   }
 
   private string2color(str: string): string {

@@ -6,6 +6,7 @@ export class KMLServiceOptions {
   groupGeometry: boolean
   documentName: string;
   useAltitude: boolean;
+  googleMapsElevationApi: string;
 
   constructor() {
     this.symbolLength = 50;
@@ -14,6 +15,7 @@ export class KMLServiceOptions {
     this.groupTags = false;
     this.groupGeometry = false;
     this.documentName = 'data';
-    this.useAltitude = false
+    this.useAltitude = false;
+    this.googleMapsElevationApi = '';
   }
 }

@@ -17,6 +17,26 @@ enum BalloonLines {
   NOTES,
 }
 
+interface GoogleElevationApiResponse {
+  results: GoogleElevationApiResponseDataItem[];
+  status: GoogleElevationApiResponseStatus;
+  error_message?: string;
+}
+
+interface GoogleElevationApiResponseDataItem {
+  elevation: number;
+  location: { lat: number, lng: number };
+  resolution: number;
+}
+
+type GoogleElevationApiResponseStatus = 'OK' |
+  'DATA_NOT_AVAILABLE' |
+  'INVALID_REQUEST' |
+  'OVER_DAILY_LIMIT' |
+  'OVER_QUERY_LIMIT' |
+  'REQUEST_DENIED' |
+  'UNKNOWN_ERROR';
+
 type AltitudeMode = 'clampToGround' | 'relativeToGround' | 'absolute';
 
 declare var google;
@@ -33,16 +53,51 @@ export class KmlService {
     this.options = new KMLServiceOptions();
   }
 
-  public get(csvRecords: TableCSV, options?: KMLServiceOptions): string {
+  public async get(csvRecords: TableCSV, options?: KMLServiceOptions): Promise<string> {
     this.csvRecords = csvRecords
     this.options = Object.assign(this.options, options);
     const styles = this.createStyles();
+
+    if (this.options.useAltitude && this.options.googleMapsElevationApi) {
+      await this.getElevationDataGoogleService();
+    }
 
     const content = this.options.groupTags ?
       this.generateFolderString() :
       this.generatePlacemarkString(this.csvRecords.data);
 
     return this.createDocument(styles + content, this.options.documentName);
+  }
+
+  private async getElevationDataGoogleService() {
+    const missingData = this.csvRecords.data.map(row => this.csvRecords.getLatLng(row)).filter(latLngAlt => !latLngAlt.alt && latLngAlt.lat !== undefined && latLngAlt.lng !== undefined);
+    if (missingData.length < 512) {
+      const locations = missingData.map(row => `${row.lat},${row.lng}`).join('|');
+      const url = `https://maps.googleapis.com/maps/api/elevation/json?key=${this.options.googleMapsElevationApi}&locations=${encodeURI(locations)}`;
+      try {
+        const response = await fetch(url, { mode: 'no-cors' })
+        const data: GoogleElevationApiResponse = await response.json();
+        if (data.status === 'OK') {
+          this.csvRecords.data.forEach((row, index) => {
+            const latLngAlt = this.csvRecords.getLatLng(row);
+            const resItem = data.results[index];
+            if (
+              !latLngAlt.alt &&
+              latLngAlt.lat !== undefined &&
+              latLngAlt.lng !== undefined
+            ) {
+              const altColumnIndex = this.csvRecords.getColIndex(HeaderNames['Altitude(m)'])
+              this.csvRecords[index][altColumnIndex] = resItem.elevation;
+            }
+          })
+          data.results
+        } else {
+          alert(data.status)
+        }
+      } catch (error) {
+        alert(error);
+      }
+    }
   }
 
   private generatePlacemarkString(rows: any[]): string {
