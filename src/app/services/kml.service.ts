@@ -69,31 +69,29 @@ export class KmlService {
     return this.createDocument(styles + content, this.options.documentName);
   }
 
+  private shouldGetElevation(row: any[]): boolean {
+    const location = this.csvRecords.getLatLng(row);
+    const planarOrientation = this.csvRecords.getPlanarOrientation(row);
+    const linearOrientation = this.csvRecords.getLinearOrientation(row);
+    return (planarOrientation || linearOrientation) && location && !location.alt && location.lat !== undefined && location.lng !== undefined;
+  }
+
   private async getElevationDataGoogleService() {
-    const missingData = this.csvRecords.data.map(row => this.csvRecords.getLatLng(row)).filter(latLngAlt => !latLngAlt.alt && latLngAlt.lat !== undefined && latLngAlt.lng !== undefined);
-    if (missingData.length < 512) {
-      const locations = missingData.map(row => `${row.lat},${row.lng}`).join('|');
-      const url = `https://maps.googleapis.com/maps/api/elevation/json?key=${this.options.googleMapsElevationApi}&locations=${encodeURI(locations)}`;
+    const missingData = this.csvRecords.data.filter(row => this.shouldGetElevation(row)).map(row => this.csvRecords.getLatLng(row));
+    if (missingData.length < 500) {
+      const locations = missingData.map(row => { return { lat: row.lat, lng: row.lng } });
+      const service = new google.maps.ElevationService();
       try {
-        const response = await fetch(url, { mode: 'no-cors' })
-        const data: GoogleElevationApiResponse = await response.json();
-        if (data.status === 'OK') {
-          this.csvRecords.data.forEach((row, index) => {
-            const latLngAlt = this.csvRecords.getLatLng(row);
-            const resItem = data.results[index];
-            if (
-              !latLngAlt.alt &&
-              latLngAlt.lat !== undefined &&
-              latLngAlt.lng !== undefined
-            ) {
-              const altColumnIndex = this.csvRecords.getColIndex(HeaderNames['Altitude(m)'])
-              this.csvRecords[index][altColumnIndex] = resItem.elevation;
-            }
-          })
-          data.results
-        } else {
-          alert(data.status)
-        }
+        const data: GoogleElevationApiResponse = await service.getElevationForLocations({ locations });
+        let count = 0;
+        this.csvRecords.data.forEach((row, index) => {
+          const resItem = data.results[count];
+          if (this.shouldGetElevation(row)) {
+            const altColumnIndex = this.csvRecords.getColIndex(HeaderNames['Altitude(m)'])
+            this.csvRecords[index][altColumnIndex] = resItem.elevation;
+            count += 1;
+          }
+        })
       } catch (error) {
         alert(error);
       }
