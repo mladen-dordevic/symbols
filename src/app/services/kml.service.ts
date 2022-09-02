@@ -49,6 +49,7 @@ export class KmlService {
   private csvRecords: TableCSV
   private labels: string[] = [];
   private rowAltitudeMod: AltitudeMode;
+  private contentWindow: Window | undefined;
   constructor() {
     this.options = new KMLServiceOptions();
   }
@@ -76,21 +77,52 @@ export class KmlService {
     return (planarOrientation || linearOrientation) && location && !location.alt && location.lat !== undefined && location.lng !== undefined;
   }
 
-  private async getElevationDataGoogleService() {
+  loadGoogleMaps(key: string): Promise<Window> {
+    return new Promise((resolve, reject) => {
+      const iframe = document.createElement("iframe");
+      iframe.onload = () => {
+        const node = document.createElement('script');
+        node.src = `https://maps.google.com/maps/api/js?libraries=geometry,drawing$&key=${key}`;
+        node.type = 'text/javascript';
+        node.async = false;
+        iframe.contentDocument.getElementsByTagName('head')[0].appendChild(node);
+        node.onload = () => {
+          resolve(iframe.contentWindow);
+        }
+      }
+      document.body.appendChild(iframe);
+    });
+  }
+
+
+  private async getElevationDataGoogleService(): Promise<void> {
     const missingData = this.csvRecords.data.filter(row => this.shouldGetElevation(row)).map(row => this.csvRecords.getLatLng(row));
+    if (!this.contentWindow) {
+      this.contentWindow = await this.loadGoogleMaps(this.options.googleMapsElevationApi);
+    }
+    const service = new this.contentWindow.window['google'].maps.ElevationService();
+
     if (missingData.length < 500) {
       const locations = missingData.map(row => { return { lat: row.lat, lng: row.lng } });
-      const service = new google.maps.ElevationService();
       try {
-        const data: GoogleElevationApiResponse = await service.getElevationForLocations({ locations });
-        let count = 0;
-        this.csvRecords.data.forEach((row, index) => {
-          const resItem = data.results[count];
-          if (this.shouldGetElevation(row)) {
-            const altColumnIndex = this.csvRecords.getColIndex(HeaderNames['Altitude(m)'])
-            this.csvRecords[index][altColumnIndex] = resItem.elevation;
-            count += 1;
-          }
+        return new Promise((resolve, reject) => {
+          service.getElevationForLocations({ locations }, (data, status) => {
+            if (!data) {
+              alert('Google Did not return any results:' + ' ' + status)
+              return resolve();
+            }
+            let count = 0;
+            this.csvRecords.data.forEach((row, index) => {
+              const resItem = data[count];
+              if (this.shouldGetElevation(row)) {
+                const altColumnIndex = this.csvRecords.getColIndex(HeaderNames['Altitude(m)'])
+                this.csvRecords[index][altColumnIndex] = resItem.elevation;
+                count += 1;
+              }
+            });
+            resolve();
+          });
+
         })
       } catch (error) {
         alert(error);
