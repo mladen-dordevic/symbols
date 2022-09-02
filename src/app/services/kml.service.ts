@@ -224,10 +224,9 @@ export class KmlService {
     const linearOrientation = this.csvRecords.getLinearOrientation(row);
     const noIcon = (!planarOrientation && !linearOrientation) ? 'dot_' : '';
 
-    const showDescription = this.options.groupGeometry ? '' : `<description><![CDATA[${description}]]></description>`;
     const content = `<Placemark>
       <name>${name}</name>
-      ${showDescription}
+      <description><![CDATA[${description}]]></description>
       <styleUrl>#_${noIcon}${color}</styleUrl>
       ${geometry}
       </Placemark>${this.labels.join()}`;
@@ -265,7 +264,7 @@ export class KmlService {
   }
 
   private getAltitude(latLngAlt: LatLngAlt): number {
-    return this.options.useAltitude ? (latLngAlt.alt ? latLngAlt.alt : this.options.symbolHeight) : this.options.symbolHeight;
+    return this.options.symbolHeight + (this.options.useAltitude && latLngAlt.alt ? latLngAlt.alt : 0);
   }
 
   private generateStrikeDipGeometry(latLngAlt: LatLngAlt, orientation: Orientation): string[] {
@@ -290,7 +289,6 @@ export class KmlService {
         [p2.lng(), p2.lat(), altitude]
       ], this.rowAltitudeMod)
     ];
-
   }
 
   // Crossed circle with only a strike, same height
@@ -309,7 +307,6 @@ export class KmlService {
 
     const altitude = this.getAltitude(latLngAlt);
 
-
     circles = circles.map(c => [c.lng(), c.lat(), altitude]);
 
     return [
@@ -321,7 +318,7 @@ export class KmlService {
         [p2.lng(), p2.lat(), altitude],
         [p4.lng(), p4.lat(), altitude]
       ], this.rowAltitudeMod),
-      this.createLinearString(circles)
+      this.createLinearString(circles, this.rowAltitudeMod)
     ];
   }
 
@@ -331,13 +328,9 @@ export class KmlService {
     const p1 = google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike);
     const p2 = google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike + 180);
 
-
     const p1a = google.maps.geometry.spherical.computeOffset(pm, unit / 2, orientation.strike + 90);
     const p2a = google.maps.geometry.spherical.computeOffset(pm, unit / 2, orientation.strike + 270);
     const altitude = this.getAltitude(latLngAlt);
-
-
-
 
     return [
       this.createLinearString([

@@ -51,7 +51,7 @@
         <mat-divider></mat-divider>
 
         <h3>Tag Colors</h3>
-        <mat-form-field *ngFor="let item of tagColors" appearance="fill">
+        <mat-form-field *ngFor="let item of csvRecords.tagColors" appearance="fill">
           <mat-label>{{item.tag}}</mat-label>
           <input matInput [value]="item.color" style="padding:5px 0" [style.background]="item.color"
             [cpAlphaChannel]="'disabled'" [cpOutputFormat]="'hex'" [(colorPicker)]="item.color" />

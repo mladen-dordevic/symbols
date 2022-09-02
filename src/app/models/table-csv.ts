@@ -1,5 +1,4 @@
 import { HeaderNames } from 'src/app/enum/header-names.enum';
-import { TagColor } from '../components/map/map.component';
 export interface LatLngAlt {
   lat: number;
   lng: number;
@@ -10,11 +9,21 @@ export interface Orientation {
   strike: number;
   dip: number;
 }
+
+// Default tag for untagged entries
+export const TAG_ALL = "Tag:Undesignated spots";
+const STORAGE_COLOR_KEY = 'color-storage';
+export interface TagColor {
+  tag: string;
+  color: string;
+}
+
 export class TableCSV {
   // headerNames = Object.keys(HeaderNames).filter((v) => isNaN(Number(v)));
   headerNames = [];
   headerOrder = [];
-  tagColors: TagColor[];
+  tagColors: TagColor[] = [];
+  private storedColors: TagColor[] = [];
   rawData: string;
   data: [][] = [];
 
@@ -25,6 +34,11 @@ export class TableCSV {
 
   private initHeaderOrder(length: number = +Infinity) {
     this.headerOrder = this.headerNames.map((e, i) => i).filter((e, i) => i < length);
+  }
+
+  setHeader(data: string[]): void {
+    this.headerNames = data;
+    this.initTagColors();
   }
 
   setData(data: any) {
@@ -59,7 +73,8 @@ export class TableCSV {
   }
 
   getUniqueFormations(): string[] {
-    return this.headerNames.filter(tag => tag.includes('Tag:'));
+    const tagsInHeader: string[] = this.headerNames.filter(tag => tag.includes('Tag:'));
+    return [...tagsInHeader, TAG_ALL];
   }
 
   getRowColor(row: any[]): string {
@@ -69,7 +84,7 @@ export class TableCSV {
   }
 
   getFormation(row: any[]): string {
-    return this.headerNames.find((tag, index) => tag.includes('Tag:') && row[index] && row[index].trim() === 'X');
+    return this.headerNames.find((tag, index) => tag.includes('Tag:') && row[index] && row[index].trim() === 'X') || TAG_ALL;
   }
 
   getLinearOrientation(row: any[]): Orientation | undefined {
@@ -115,4 +130,50 @@ export class TableCSV {
     }
     return undefined;
   }
+
+  private string2color(str: string): string {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) + hash) + str.charCodeAt(i); /* hash * 33 + c */
+    }
+    const r = (hash & 0xFF0000) >> 16;
+    const g = (hash & 0x00FF00) >> 8;
+    const b = hash & 0x0000FF;
+    return '#' + ('0' + r.toString(16)).slice(-2) + ('0' + g.toString(16)).slice(-2) + ('0' + b.toString(16)).slice(-2);
+  }
+
+  initTagColors() {
+    this.headerNames.forEach((tag, index) => {
+      if (tag.includes('Tag:')) {
+        this.addTagColor(tag);
+      }
+    });
+    this.addTagColor(TAG_ALL);
+  }
+
+  private addTagColor(tag: string) {
+    const storedColors = this.findStoredColor(tag);
+    const color = storedColors?.color || this.string2color(tag);
+    this.tagColors.push({ tag, color });
+  }
+
+  saveColors(): void {
+    const store = JSON.stringify(this.tagColors);
+    localStorage.setItem(STORAGE_COLOR_KEY, store);
+  }
+
+  setStoredColors(): void {
+    const res = localStorage.getItem(STORAGE_COLOR_KEY);
+    if (res) {
+      this.storedColors = <TagColor[]>JSON.parse(res);
+    }
+  }
+
+  findStoredColor(tagName: string): TagColor | undefined {
+    if (!this.storedColors.length) {
+      this.setStoredColors();
+    }
+    return this.storedColors.find(e => e.tag === tagName);
+  }
+
 }
