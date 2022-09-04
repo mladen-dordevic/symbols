@@ -25,7 +25,7 @@ export class TableCSV {
   tagColors: TagColor[] = [];
   private storedColors: TagColor[] = [];
   rawData: string;
-  data: [][] = [];
+  data: any[][] = [];
 
   isNumeric(val: any): boolean {
     const test = parseFloat(val);

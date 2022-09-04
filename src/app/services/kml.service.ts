@@ -17,26 +17,6 @@ enum BalloonLines {
   NOTES,
 }
 
-interface GoogleElevationApiResponse {
-  results: GoogleElevationApiResponseDataItem[];
-  status: GoogleElevationApiResponseStatus;
-  error_message?: string;
-}
-
-interface GoogleElevationApiResponseDataItem {
-  elevation: number;
-  location: { lat: number, lng: number };
-  resolution: number;
-}
-
-type GoogleElevationApiResponseStatus = 'OK' |
-  'DATA_NOT_AVAILABLE' |
-  'INVALID_REQUEST' |
-  'OVER_DAILY_LIMIT' |
-  'OVER_QUERY_LIMIT' |
-  'REQUEST_DENIED' |
-  'UNKNOWN_ERROR';
-
 type AltitudeMode = 'clampToGround' | 'relativeToGround' | 'absolute';
 
 declare var google;
@@ -80,6 +60,11 @@ export class KmlService {
   loadGoogleMaps(key: string): Promise<Window> {
     return new Promise((resolve, reject) => {
       const iframe = document.createElement("iframe");
+      iframe.width = '0';
+      iframe.height = '0';
+      iframe.tabIndex = -1;
+      iframe.title = 'empty';
+      iframe.setAttribute('style', 'display:none;');
       iframe.onload = () => {
         const node = document.createElement('script');
         node.src = `https://maps.google.com/maps/api/js?libraries=geometry,drawing$&key=${key}`;
@@ -116,7 +101,7 @@ export class KmlService {
               const resItem = data[count];
               if (this.shouldGetElevation(row)) {
                 const altColumnIndex = this.csvRecords.getColIndex(HeaderNames['Altitude(m)'])
-                this.csvRecords[index][altColumnIndex] = resItem.elevation;
+                this.csvRecords.data[index][altColumnIndex] = resItem.elevation;
                 count += 1;
               }
             });
