@@ -44,8 +44,8 @@
         <mat-divider></mat-divider>
         <h3>Altitude</h3>
         <p>
-          This will use the 'Altitude(m)' column in your spreadsheet to set geometry's altitude mode to 'absolute' where
-          altitude values are available, and to 'clamped to the ground' where they are not.
+          This will use the 'Altitude(m)' column in your spreadsheet to set the geometry's altitude mode to 'absolute'
+          elevation where altitude values are available, and to 'relative to the ground' where they are not.
         </p>
         <mat-form-field class="form-f" appearance="none">
           <mat-slide-toggle [(ngModel)]="kmlOptions.useAltitude">Use altitude column</mat-slide-toggle>
@@ -84,7 +84,7 @@
             <mat-label>Master Color</mat-label>
             <input matInput [value]="masterColor" style="padding:5px 0" [style.background]="masterColor"
               [cpAlphaChannel]="'disabled'" [cpOutputFormat]="'hex'" [(colorPicker)]="masterColor"
-              (colorPickerChange)="masterColorChange($event)"/>
+              (colorPickerChange)="masterColorChange($event)" />
           </mat-form-field>
           <button mat-button (click)="resetDefaultColors()">Default</button>
         </p>

@@ -43,7 +43,6 @@ export class TableCSV {
 
   setData(data: any) {
     this.data = data;
-    this.headerNames = [...data[0]];
     this.initHeaderOrder(this.data[0].length);
   }
 
@@ -135,7 +134,7 @@ export class TableCSV {
     return { lat: undefined, lng: undefined, alt: undefined };
   }
 
-  private string2color(str: string): string {
+  string2color(str: string): string {
     let hash = 5381;
     for (let i = 0; i < str.length; i++) {
       hash = ((hash << 5) + hash) + str.charCodeAt(i); /* hash * 33 + c */

@@ -95,7 +95,6 @@ export class MapComponent implements OnInit {
     const headerNames = Object.values(header);
 
     this.csvRecords.setHeader(headerNames);
-    this.defaultColors = this.csvRecords.tagColors.map(row => row.color);
 
     out.push(headerNames);
 
@@ -115,6 +114,31 @@ export class MapComponent implements OnInit {
     return new Promise((resolve, reject) => {
       this.papa.parse(file, {
         complete: (result) => {
+          // check if StraboSpot produced scv
+          let headerNames;
+          if (result.data[0][0].includes('StraboSpot')) {
+            headerNames = result.data[3];
+          } else {
+            headerNames = Object.values(HeaderNames);
+            // Does the first 5 column have tag data
+            const tags = [];
+            for (let i = 0; i < 5 && i < result.data.length; i++) {
+              const row = result.data[i];
+              row.forEach(tag => {
+                if (tag.includes('Tag:')) {
+                  tags.push(tag);
+                }
+              });
+            }
+            if (tags.length === 0) {
+              for (let i = 0; i < 20; i++) {
+                headerNames.push(`Tag:Unit ${i}`);
+              }
+            }
+
+            headerNames = [...headerNames, ...tags];
+          }
+          this.csvRecords.setHeader(headerNames);
           resolve(result.data);
         }
       })
@@ -127,7 +151,9 @@ export class MapComponent implements OnInit {
   }
 
   resetDefaultColors() {
-    this.csvRecords.tagColors.forEach((row, index) => row.color = this.defaultColors[index]);
+    this.csvRecords.tagColors.forEach(row => {
+      row.color = this.csvRecords.string2color(row.tag);
+    });
   }
 
   validateCell(value: any, colIndex: number): string {
