@@ -27,6 +27,8 @@ export class MapComponent implements OnInit {
   dip = 0;
   strike = 0;
   selected = null;
+  masterColor = '#000000';
+  defaultColors = [];
   showMap = false;
 
   csvRecords: TableCSV;
@@ -93,6 +95,7 @@ export class MapComponent implements OnInit {
     const headerNames = Object.values(header);
 
     this.csvRecords.setHeader(headerNames);
+    this.defaultColors = this.csvRecords.tagColors.map(row => row.color);
 
     out.push(headerNames);
 
@@ -108,8 +111,6 @@ export class MapComponent implements OnInit {
     return out;
   }
 
-
-
   parseCSV(file: File): Promise<any> {
     return new Promise((resolve, reject) => {
       this.papa.parse(file, {
@@ -118,6 +119,15 @@ export class MapComponent implements OnInit {
         }
       })
     });
+  }
+
+  masterColorChange(event): void {
+    console.log(event);
+    this.csvRecords.tagColors.forEach(row => row.color = event);
+  }
+
+  resetDefaultColors() {
+    this.csvRecords.tagColors.forEach((row, index) => row.color = this.defaultColors[index]);
   }
 
   validateCell(value: any, colIndex: number): string {

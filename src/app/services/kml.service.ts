@@ -50,10 +50,13 @@ export class KmlService {
     return this.createDocument(styles + content, this.options.documentName);
   }
 
-  private shouldGetElevation(row: any[]): boolean {
+  private shouldGetElevation(row: any[], strict: boolean = true): boolean {
     const location = this.csvRecords.getLatLng(row);
     const planarOrientation = this.csvRecords.getPlanarOrientation(row);
     const linearOrientation = this.csvRecords.getLinearOrientation(row);
+    if (strict) {
+      return planarOrientation !== undefined || linearOrientation !== undefined;
+    }
     return (planarOrientation || linearOrientation) && location && !location.alt && location.lat !== undefined && location.lng !== undefined;
   }
 
@@ -86,6 +89,7 @@ export class KmlService {
       this.contentWindow = await this.loadGoogleMaps(this.options.googleMapsElevationApi);
     }
     const service = new this.contentWindow.window['google'].maps.ElevationService();
+    console.log(`Getting elevation data for ${missingData.length} points.`);
 
     if (missingData.length < 500) {
       const locations = missingData.map(row => { return { lat: row.lat, lng: row.lng } });
@@ -112,6 +116,8 @@ export class KmlService {
       } catch (error) {
         alert(error);
       }
+    } else {
+      alert(`Google aloes you to have 512 requests in each batch. You are trying to fetch ${missingData.length}. Automatic batching has not yet been implemented. You could try splitting your input files.`);
     }
   }
 

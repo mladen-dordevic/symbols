@@ -33,19 +33,34 @@
           <mat-label>Filename</mat-label>
           <input matInput [(ngModel)]="kmlOptions.documentName">
         </mat-form-field>
+
+        <!-- <mat-form-field class="form-f" appearance="none" *ngIf="kmlOptions.useAltitude">
+            <mat-slide-toggle [(ngModel)]="kmlOptions.googleMapsElevationApi">Use Google Elevation API</mat-slide-toggle>
+            <textarea matInput hidden></textarea>
+          </mat-form-field> -->
+
+
+
+        <mat-divider></mat-divider>
+        <h3>Altitude</h3>
+        <p>
+          This will use the 'Altitude(m)' column in your spreadsheet to set geometry's altitude mode to 'absolute' where
+          altitude values are available, and to 'clamped to the ground' where they are not.
+        </p>
         <mat-form-field class="form-f" appearance="none">
           <mat-slide-toggle [(ngModel)]="kmlOptions.useAltitude">Use altitude column</mat-slide-toggle>
           <textarea matInput hidden></textarea>
         </mat-form-field>
-        <!-- <mat-form-field class="form-f" appearance="none" *ngIf="kmlOptions.useAltitude">
-          <mat-slide-toggle [(ngModel)]="kmlOptions.googleMapsElevationApi">Use Google Elevation API</mat-slide-toggle>
-          <textarea matInput hidden></textarea>
-        </mat-form-field> -->
+        <p *ngIf="kmlOptions.useAltitude">
+          If you provide valid Google Maps API key that has Elevation service enabled, we will try to fetch altitude
+          data for 'Altitude(m)' column for all rows that have geometry in them. This will overwrite existing values.
+        </p>
         <mat-form-field class="form-f" *ngIf="kmlOptions.useAltitude">
           <mat-label>Google Elevation API key</mat-label>
           <input matInput [(ngModel)]="kmlOptions.googleMapsElevationApi">
         </mat-form-field>
         <mat-divider></mat-divider>
+
 
         <h3>Group symbols to folders by</h3>
         <mat-form-field class="form-f" appearance="none">
@@ -64,6 +79,15 @@
           <input matInput [value]="item.color" style="padding:5px 0" [style.background]="item.color"
             [cpAlphaChannel]="'disabled'" [cpOutputFormat]="'hex'" [(colorPicker)]="item.color" />
         </mat-form-field>
+        <p>
+          <mat-form-field appearance="fill">
+            <mat-label>Master Color</mat-label>
+            <input matInput [value]="masterColor" style="padding:5px 0" [style.background]="masterColor"
+              [cpAlphaChannel]="'disabled'" [cpOutputFormat]="'hex'" [(colorPicker)]="masterColor"
+              (colorPickerChange)="masterColorChange($event)"/>
+          </mat-form-field>
+          <button mat-button (click)="resetDefaultColors()">Default</button>
+        </p>
       </mat-card-content>
       <mat-card-actions>
         <button mat-button color="primary" (click)="export()">Export</button>
