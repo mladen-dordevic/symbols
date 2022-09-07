@@ -19,13 +19,20 @@ export interface TagColor {
 }
 
 export class TableCSV {
-  // headerNames = Object.keys(HeaderNames).filter((v) => isNaN(Number(v)));
-  headerNames = [];
-  headerOrder = [];
-  tagColors: TagColor[] = [];
-  private storedColors: TagColor[] = [];
-  rawData: string;
-  data: any[][] = [];
+  headerNames: string[];
+  headerOrder: number[];
+  tagColors: TagColor[];
+  private storedColors: TagColor[];
+  data: any[][];
+
+  constructor() {
+    this.headerNames = [];
+    this.headerOrder = [];
+    this.tagColors = [];
+    this.storedColors = [];
+    this.data = [];
+  }
+
 
   isNumeric(val: any): boolean {
     const test = parseFloat(val);

@@ -67,10 +67,14 @@ export class MapComponent implements OnInit {
     })
   }
 
+  resetData() {
+    this.csvRecords = new TableCSV();
+  }
+
   async fileChangeListener($event: any): Promise<void> {
     const file: File = $event.srcElement.files[0];
-    console.log(file);
     let res = null;
+    this.resetData();
     if (!file) {
       return;
     }
