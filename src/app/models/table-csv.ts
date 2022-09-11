@@ -4,10 +4,15 @@ export interface LatLngAlt {
   lng: number;
   alt: number;
 }
+export type PlanarOrientationFeatureType = 'bedding' | 'contact' | 'foliation' | 'fracture' | 'fault' | 'vein' | 'shear_zone' | 'shear_zone_bou' | 'fold_axial_surface' | 'plane_of_boudinage' | 'plane_of_mullions' | 'other';
+
+export type linearOrientationFeatureType = 'stretching' | 'intersection' | 'pencil_cleav' | 'striations' | 'slickenlines' | 'fold_hinge' | 's_fold' | 'z_fold' | 'm_fold' | 'slickenfibers' | 'groove_marks' | 'parting_lineat' | 'magmatic_miner_1' | 'xenolith_encla' | 'mineral_align' | 'deformed_marke' | 'rodding' | 'boudin' | 'mullions' | 'mineral_streak' | 'vorticity_axis' | 'flow_transport' | 'vergence' | 'vector' | 'other';
 
 export interface Orientation {
   strike: number;
   dip: number;
+  type: PlanarOrientationFeatureType | linearOrientationFeatureType;
+  orientation: string;
 }
 
 // Default tag for untagged entries
@@ -100,8 +105,10 @@ export class TableCSV {
   getLinearOrientation(row: any[]): Orientation | undefined {
     const strike = this.getCol(row, HeaderNames['Linear Orientation Trend']);
     const dip = this.getCol(row, HeaderNames['Linear Orientation Plunge']);
+    const type = <linearOrientationFeatureType>this.getCol(row, HeaderNames['Linear Orientation Linear Feature Type']);
+    const orientation = '';
     if (this.isNumeric(strike) && this.isNumeric(dip)) {
-      return { strike: +strike, dip: +dip };
+      return { strike: +strike, dip: +dip, type, orientation };
     }
     return undefined;
   }
@@ -109,8 +116,10 @@ export class TableCSV {
   getPlanarOrientation(row: any[]): Orientation | undefined {
     const strike = this.getCol(row, HeaderNames['Planar Orientation Strike']);
     const dip = this.getCol(row, HeaderNames['Planar Orientation Dip']);
+    const type = <PlanarOrientationFeatureType>this.getCol(row, HeaderNames['Planar Orientation Planar Feature Type']);
+    const orientation = this.getCol(row, HeaderNames['Planar Orientation Facing'])
     if (this.isNumeric(strike) && this.isNumeric(dip)) {
-      return { strike: +strike, dip: +dip };
+      return { strike: +strike, dip: +dip, type, orientation };
     }
     return undefined;
   }

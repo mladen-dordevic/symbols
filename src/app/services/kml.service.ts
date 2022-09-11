@@ -227,7 +227,12 @@ export class KmlService {
       if (planarOrientation.dip === 0) {
         out.push(...this.generateStrikeDip0Geometry(latLng, planarOrientation));
       }
-      out.push(...this.generateStrikeDipGeometry(latLng, planarOrientation));
+      if (planarOrientation.type === 'foliation') {
+        out.push(...this.generateFoliationGeometry(latLng, planarOrientation));
+      } else {
+        out.push(...this.generateStrikeDipGeometry(latLng, planarOrientation));
+      }
+
     }
     if (linearOrientation) {
       if (linearOrientation.dip === 90) {
