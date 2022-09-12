@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HeaderNames } from '../enum/header-names.enum';
-import { LatLngAlt, Orientation, TableCSV, RealWorldCoordinatesType } from '../models/table-csv';
+import { LatLngAlt, Orientation, TableCSV } from '../models/table-csv';
 import { KMLServiceOptions } from '../models/kmlservice-options';
 
 enum BalloonLines {
@@ -13,6 +13,9 @@ enum BalloonLines {
   LINEAR_FEATURE,
   LINEAR_ORIENTATION_TREND,
   LINEAR_ORIENTATION_PLUNGE,
+  TRACE_TRACE_TYPE,
+  TRACE_TRACE_QUALITY,
+  TRACE_TACE_NOTES,
   DATE,
   NOTES,
 }
@@ -160,6 +163,10 @@ export class KmlService {
 
     const linearFeature = this.csvRecords.getCol(row, HeaderNames['Linear Orientation Linear Feature Type']);
 
+    const traceType = this.csvRecords.getCol(row, HeaderNames['Trace Trace Type']);
+    const traceNotes = this.csvRecords.getCol(row, HeaderNames['Trace Tace Notes']);
+    const traceQuality = this.csvRecords.getCol(row, HeaderNames['Trace Trace Quality']);
+
     let out = [
       formation ? `Unit: ${formation.replace('Tag:', '')}` : false,
       planarFeature ? `Planar Feature: ${this.titleCase(planarFeature)}` : false,
@@ -170,6 +177,9 @@ export class KmlService {
       linearFeature ? `Linear Feature: ${this.titleCase(linearFeature)}` : false,
       linearOrientation ? `Trend: ${linearOrientation.strike}&deg;` : false,
       linearOrientation ? `Plunge: ${linearOrientation.dip}&deg;` : false,
+      traceType ? `Trace Type: ${traceType}` : false,
+      traceQuality ? `Trace Quality ${traceQuality}` : false,
+      traceNotes ? `Trace Notes: ${traceNotes}` : false,
       date ? `Date UTC: ${date}` : false,
       notes ? `Notes: ${notes}` : false
     ];
@@ -177,6 +187,7 @@ export class KmlService {
     out = this.beforeMeExist(out, BalloonLines.LINEAR_FEATURE);
     out = this.beforeMeExist(out, BalloonLines.DATE);
     out = this.beforeMeExist(out, BalloonLines.NOTES);
+    out = this.beforeMeExist(out, BalloonLines.TRACE_TRACE_TYPE);
     return out.filter(e => e).join('<br>')
   }
 
@@ -276,18 +287,30 @@ export class KmlService {
     return folder + noIcon + tags.map(tag => this.createStyle(tag.color)).join('');
   }
 
-  private colorName2aabbggrr(colorHexHash: string): string {
+  private colorName2aabbggrr(colorHexHash: string, alpha = 'ff'): string {
     const rgb = colorHexHash.replace('#', '');
     const p = rgb.split('');
-    return ['ff', p[4], p[5], p[2], p[3], p[0], p[1]].join('');
+    return [alpha, p[4], p[5], p[2], p[3], p[0], p[1]].join('');
   }
 
+
   private createStyle(color: string): string {
-    return `<Style id="_${color}">
+    return `<Style id="_default_${color}">
       <LineStyle>
         <color>${this.colorName2aabbggrr(color)}</color>
         <width>${this.options.lineWidth}</width>
       </LineStyle>
+    </Style>
+    <Style id="_polygon_${color}">
+      <LineStyle>
+        <color>${this.colorName2aabbggrr(color)}</color>
+        <width>1</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>${this.colorName2aabbggrr(color, '80')}</color>
+        <outline>1</outline>
+        <fill>1</fill>
+      </PolyStyle>
     </Style>
     <Style id="_dot_${color}">
       <IconStyle>
@@ -300,9 +323,10 @@ export class KmlService {
       <LabelStyle>
         <color>00ffffff</color>
       </LabelStyle>
-      <PolyStyle>
+      <LineStyle>
         <color>${this.colorName2aabbggrr(color)}</color>
-      </PolyStyle>
+        <width>${this.options.lineWidth}</width>
+      </LineStyle>
     </Style>`;
   }
 
@@ -316,12 +340,14 @@ export class KmlService {
   private createSymbol(name: string, description: string, color: string, geometry: string, row: any[]): string {
     const planarOrientation = this.csvRecords.getPlanarOrientation(row);
     const linearOrientation = this.csvRecords.getLinearOrientation(row);
-    const noIcon = (!planarOrientation && !linearOrientation) ? 'dot_' : '';
+    const rwgType = this.csvRecords.getRealWorldCoordinatesType(row);
+    let styleClass = (planarOrientation || linearOrientation) ? 'default' : 'dot';
+    styleClass = rwgType === 'POLYGON' ? 'polygon' : styleClass;
 
     const content = `<Placemark>
       <name>${name}</name>
       <description><![CDATA[${description}]]></description>
-      <styleUrl>#_${noIcon}${color}</styleUrl>
+      <styleUrl>#_${styleClass}_${color}</styleUrl>
       ${geometry}
       </Placemark>${this.labels.join()}`;
 
@@ -486,16 +512,18 @@ export class KmlService {
     const coordinates = `${p3.lng()},${p3.lat()},${alt}`;
     this.labels.push(this.createLabel(coordinates, orientation.dip));
 
-    let circles = [];
     const circleRadius = unit / 4;
-    const circleOrigin = google.maps.geometry.spherical.computeOffset(pm, circleRadius, orientation.strike + 180)
+    const circles = []
+
     for (let angle = 0; angle <= 180; angle += 10) {
-      const arcPoint = google.maps.geometry.spherical.computeOffset(circleOrigin, circleRadius, orientation.strike + 180 + angle);
-      const altDiff = circleRadius * Math.sin(angle * Math.PI / 180) * Math.cos((90 - orientation.dip) * Math.PI / 180)
-      circles.push([arcPoint.lng(), arcPoint.lat(), altitude + altDiff]);
+      const height = circleRadius * Math.sin(angle * Math.PI / 180);
+      const length = circleRadius * Math.cos(angle * Math.PI / 180);
+
+      const pHelper = google.maps.geometry.spherical.computeOffset(pm, (circleRadius - length), orientation.strike + 180);
+      const arcPoint = google.maps.geometry.spherical.computeOffset(pHelper, height * Math.cos(orientation.dip * Math.PI / 180), orientation.strike - 90);
+      const alt = altitude + height * Math.sin(orientation.dip * Math.PI / 180);
+      circles.push([arcPoint.lng(), arcPoint.lat(), alt]);
     }
-
-
 
     return [
       this.createLinearString([

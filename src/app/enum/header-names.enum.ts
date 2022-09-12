@@ -15,4 +15,7 @@ export enum HeaderNames {
   'Linear Orientation Trend' = 'Linear Orientation Trend',
   'Linear Orientation Plunge' = 'Linear Orientation Plunge',
   'Linear Orientation Linear Feature Type' = 'Linear Orientation Linear Feature Type',
+  'Trace Trace Quality' = 'Trace Trace Quality',
+  'Trace Trace Type' = 'Trace Trace Type',
+  'Trace Tace Notes' = 'Trace Tace Notes',
 }
