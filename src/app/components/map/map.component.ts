@@ -197,11 +197,8 @@ export class MapComponent implements OnInit {
   }
 
   invalidRow(row): boolean {
-    const lat = +this.csvRecords.getCol(row, HeaderNames.Latitude);
-    const lng = +this.csvRecords.getCol(row, HeaderNames.Longitude);
-
-    const strikeTrend = this.csvRecords.getCol(row, HeaderNames['Planar Orientation Strike']) !== undefined || this.csvRecords.getCol(row, HeaderNames['Linear Orientation Trend']) !== undefined;
-    return lat !== 0 && isNaN(lat) === false && lng !== 0 && isNaN(lng) === false;
+    const latLng = this.csvRecords.getLatLng(row);
+    return latLng.lat != undefined && latLng.lng !== undefined;
   }
 
 

@@ -6,12 +6,14 @@ export interface LatLngAlt {
 }
 export type PlanarOrientationFeatureType = 'bedding' | 'contact' | 'foliation' | 'fracture' | 'fault' | 'vein' | 'shear_zone' | 'shear_zone_bou' | 'fold_axial_surface' | 'plane_of_boudinage' | 'plane_of_mullions' | 'other';
 
-export type linearOrientationFeatureType = 'stretching' | 'intersection' | 'pencil_cleav' | 'striations' | 'slickenlines' | 'fold_hinge' | 's_fold' | 'z_fold' | 'm_fold' | 'slickenfibers' | 'groove_marks' | 'parting_lineat' | 'magmatic_miner_1' | 'xenolith_encla' | 'mineral_align' | 'deformed_marke' | 'rodding' | 'boudin' | 'mullions' | 'mineral_streak' | 'vorticity_axis' | 'flow_transport' | 'vergence' | 'vector' | 'other';
+export type LinearOrientationFeatureType = 'stretching' | 'intersection' | 'pencil_cleav' | 'striations' | 'slickenlines' | 'fold_hinge' | 's_fold' | 'z_fold' | 'm_fold' | 'slickenfibers' | 'groove_marks' | 'parting_lineat' | 'magmatic_miner_1' | 'xenolith_encla' | 'mineral_align' | 'deformed_marke' | 'rodding' | 'boudin' | 'mullions' | 'mineral_streak' | 'vorticity_axis' | 'flow_transport' | 'vergence' | 'vector' | 'other';
+
+export type RealWorldCoordinatesType = 'LINESTRING' | 'POLYGON' | 'POINT';
 
 export interface Orientation {
   strike: number;
   dip: number;
-  type: PlanarOrientationFeatureType | linearOrientationFeatureType;
+  type: PlanarOrientationFeatureType | LinearOrientationFeatureType;
   orientation: string;
 }
 
@@ -70,6 +72,8 @@ export class TableCSV {
   validateCellType(value: any, colIndex: number): boolean | null {
     const type = this.headerNames[this.headerOrder[colIndex]];
     switch (type) {
+      case HeaderNames['Real World Coordinates']:
+        return this.parseRealWorldCoordinates(value) !== undefined;
       case HeaderNames.Longitude:
         return this.isNumeric(value) && +value >= -180 && +value <= 180;
       case HeaderNames.Latitude:
@@ -105,7 +109,7 @@ export class TableCSV {
   getLinearOrientation(row: any[]): Orientation | undefined {
     const strike = this.getCol(row, HeaderNames['Linear Orientation Trend']);
     const dip = this.getCol(row, HeaderNames['Linear Orientation Plunge']);
-    const type = <linearOrientationFeatureType>this.getCol(row, HeaderNames['Linear Orientation Linear Feature Type']);
+    const type = this.getCol(row, HeaderNames['Linear Orientation Linear Feature Type']) as LinearOrientationFeatureType;
     const orientation = '';
     if (this.isNumeric(strike) && this.isNumeric(dip)) {
       return { strike: +strike, dip: +dip, type, orientation };
@@ -116,7 +120,7 @@ export class TableCSV {
   getPlanarOrientation(row: any[]): Orientation | undefined {
     const strike = this.getCol(row, HeaderNames['Planar Orientation Strike']);
     const dip = this.getCol(row, HeaderNames['Planar Orientation Dip']);
-    const type = <PlanarOrientationFeatureType>this.getCol(row, HeaderNames['Planar Orientation Planar Feature Type']);
+    const type = this.getCol(row, HeaderNames['Planar Orientation Planar Feature Type']) as PlanarOrientationFeatureType;
     const orientation = this.getCol(row, HeaderNames['Planar Orientation Facing'])
     if (this.isNumeric(strike) && this.isNumeric(dip)) {
       return { strike: +strike, dip: +dip, type, orientation };
@@ -124,17 +128,42 @@ export class TableCSV {
     return undefined;
   }
 
-  getLine(row: any[]): number[][] | undefined {
+  getRealWorldCoordinates(row: any[]): number[][] | undefined {
     let val = this.getCol(row, HeaderNames['Real World Coordinates']);
+    return this.parseRealWorldCoordinates(val);
+  }
+
+  getRealWorldCoordinatesType(row: any[]): RealWorldCoordinatesType {
+    let val = this.getCol(row, HeaderNames['Real World Coordinates']);
+    const types: RealWorldCoordinatesType[] = ['LINESTRING', 'POLYGON', 'POINT'];
+    return types.find(type => val?.includes(type))
+  }
+
+  parseRealWorldCoordinates(val: string): number[][] | undefined {
     if (val?.includes('LINESTRING')) {
       return val.trim()
         .replace('LINESTRING (', '')
         .replace(')', '')
         .split(',')
-        .map(p => p.split(' ').map(e => +e));
+        .map(p => p.trim().split(' ').map(e => +e));
+    }
+    if (val?.includes('POLYGON')) {
+      return val.trim()
+        .replace('POLYGON ((', '')
+        .replace('))', '')
+        .split(',')
+        .map(p => p.trim().split(' ').map(e => +e));
+    }
+    if (val?.includes('POINT')) {
+      return val.trim()
+        .replace('POINT (', '')
+        .replace(')', '')
+        .split(',')
+        .map(p => p.trim().split(' ').map(e => +e));
     }
     return undefined;
   }
+
 
   getLatLng(row: any[]): LatLngAlt {
     const lat = this.getCol(row, HeaderNames.Latitude);
@@ -143,7 +172,7 @@ export class TableCSV {
     if (this.isNumeric(lat) && this.isNumeric(lng)) {
       return { lat: +lat, lng: +lng, alt: +alt };
     }
-    const line = this.getLine(row);
+    const line = this.getRealWorldCoordinates(row);
     if (line && line[0] && this.isNumeric(line[0][1]) && this.isNumeric(line[0][0])) {
       return { lat: line[0][1], lng: line[0][0], alt: 0 };
     }

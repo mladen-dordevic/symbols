@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HeaderNames } from '../enum/header-names.enum';
-import { LatLngAlt, Orientation, TableCSV } from '../models/table-csv';
+import { LatLngAlt, Orientation, TableCSV, RealWorldCoordinatesType } from '../models/table-csv';
 import { KMLServiceOptions } from '../models/kmlservice-options';
 
 enum BalloonLines {
@@ -209,15 +209,21 @@ export class KmlService {
     const out = [];
     const planarOrientation = this.csvRecords.getPlanarOrientation(row);
     const linearOrientation = this.csvRecords.getLinearOrientation(row);
-    const line = this.csvRecords.getLine(row);
+    const line = this.csvRecords.getRealWorldCoordinates(row);
     const latLng = this.csvRecords.getLatLng(row);
+    const lineType = this.csvRecords.getRealWorldCoordinatesType(row);
 
     if (!planarOrientation && !linearOrientation && !line) {
       out.push(`<Point><coordinates>${latLng.lng},${latLng.lat},${this.options.symbolLength / 2}</coordinates></Point>`);
     }
 
     if (line) {
-      out.push(...this.createLinearString(line, 'clampToGround'));
+      if (lineType == 'LINESTRING') {
+        out.push(this.createLinearString(line, 'clampToGround'));
+      }
+      if (lineType == 'POLYGON') {
+        out.push(this.createPolygonString(line, 'clampToGround'));
+      }
     }
 
     if (planarOrientation) {
@@ -230,7 +236,11 @@ export class KmlService {
       if (planarOrientation.type === 'foliation') {
         out.push(...this.generateFoliationGeometry(latLng, planarOrientation));
       } else {
-        out.push(...this.generateStrikeDipGeometry(latLng, planarOrientation));
+        if (planarOrientation.type === 'bedding' && planarOrientation.orientation === 'overturned') {
+          out.push(...this.generateOverturnBeddingGeometry(latLng, planarOrientation));
+        } else {
+          out.push(...this.generateStrikeDipGeometry(latLng, planarOrientation));
+        }
       }
 
     }
@@ -290,6 +300,9 @@ export class KmlService {
       <LabelStyle>
         <color>00ffffff</color>
       </LabelStyle>
+      <PolyStyle>
+        <color>${this.colorName2aabbggrr(color)}</color>
+      </PolyStyle>
     </Style>`;
   }
 
@@ -430,7 +443,7 @@ export class KmlService {
   }
 
   // Line
-  private generateFoliationGeometry(latLngAlt: LatLngAlt, orientation: Orientation): string {
+  private generateFoliationGeometry(latLngAlt: LatLngAlt, orientation: Orientation): string[] {
     const unit = this.options.symbolLength / 2;
     const pm = new google.maps.LatLng(latLngAlt.lat, latLngAlt.lng);
     const p1 = google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike);
@@ -446,15 +459,54 @@ export class KmlService {
     const coordinates = `${p3.lng()},${p3.lat()},${alt}`;
     this.labels.push(this.createLabel(coordinates, orientation.dip));
 
-    return this.createLinearString([
-      [p1.lng(), p1.lat(), altitude],
-      [p1a.lng(), p1a.lat(), altitude],
-      [p3.lng(), p3.lat(), alt],
-      [p2a.lng(), p2a.lat(), altitude],
-      [p1a.lng(), p1a.lat(), altitude],
-      [p2a.lng(), p2a.lat(), altitude],
-      [p2.lng(), p2.lat(), altitude]
-    ], this.rowAltitudeMod);
+    return [
+      this.createLinearString([
+        [p1.lng(), p1.lat(), altitude],
+        [p1a.lng(), p1a.lat(), altitude],
+        [p3.lng(), p3.lat(), alt],
+        [p2a.lng(), p2a.lat(), altitude],
+        [p1a.lng(), p1a.lat(), altitude],
+        [p2a.lng(), p2a.lat(), altitude],
+        [p2.lng(), p2.lat(), altitude]
+      ], this.rowAltitudeMod)
+    ];
+  }
+
+  // Line
+  private generateOverturnBeddingGeometry(latLngAlt: LatLngAlt, orientation: Orientation): string[] {
+    const unit = this.options.symbolLength / 2;
+    const pm = new google.maps.LatLng(latLngAlt.lat, latLngAlt.lng);
+    const p1 = google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike);
+    const p2 = google.maps.geometry.spherical.computeOffset(pm, unit, orientation.strike + 180);
+    const p3 = google.maps.geometry.spherical.computeOffset(pm, unit / 2 * Math.cos(orientation.dip * Math.PI / 180), orientation.strike + 90);
+
+    const altitude = this.getAltitude(latLngAlt);
+
+    const alt = altitude - unit / 2 * Math.sin(orientation.dip * Math.PI / 180);
+    const coordinates = `${p3.lng()},${p3.lat()},${alt}`;
+    this.labels.push(this.createLabel(coordinates, orientation.dip));
+
+    let circles = [];
+    const circleRadius = unit / 4;
+    const circleOrigin = google.maps.geometry.spherical.computeOffset(pm, circleRadius, orientation.strike + 180)
+    for (let angle = 0; angle <= 180; angle += 10) {
+      const arcPoint = google.maps.geometry.spherical.computeOffset(circleOrigin, circleRadius, orientation.strike + 180 + angle);
+      const altDiff = circleRadius * Math.sin(angle * Math.PI / 180) * Math.cos((90 - orientation.dip) * Math.PI / 180)
+      circles.push([arcPoint.lng(), arcPoint.lat(), altitude + altDiff]);
+    }
+
+
+
+    return [
+      this.createLinearString([
+        [p1.lng(), p1.lat(), altitude],
+        [pm.lng(), pm.lat(), altitude],
+        [p3.lng(), p3.lat(), alt],
+        [pm.lng(), pm.lat(), altitude],
+        [p2.lng(), p2.lat(), altitude]
+      ], this.rowAltitudeMod),
+      this.createLinearString(circles, this.rowAltitudeMod)
+    ];
   }
 
   // Line with the arrow at one end
@@ -492,6 +544,19 @@ export class KmlService {
       <coordinates>${coords.map(e => e.join(',')).join(' ')}
       </coordinates>
     </LineString>`;
+  }
+
+  private createPolygonString(coords: any[], altitudeMode: AltitudeMode = 'relativeToGround'): string {
+    return `<Polygon>
+      <tesselate>1</tesselate>
+      <altitudeMode>${altitudeMode}</altitudeMode>
+      <outerBoundaryIs>
+        <LinearRing>
+          <coordinates>${coords.map(e => e.join(',')).join(' ')}
+        </coordinates>
+        </LinearRing>
+      </outerBoundaryIs>
+    </Polygon>`;
   }
 
   private createMultiGeometry(linearString: any[]): string {
