@@ -23,7 +23,7 @@ export class MapComponent implements OnInit {
   map: any;
   version = VERSION
   markers = [];
-
+  appLocation: string;
   dip = 0;
   strike = 0;
   selected = null;
@@ -42,6 +42,7 @@ export class MapComponent implements OnInit {
   ) {
     this.csvRecords = new TableCSV();
     this.kmlOptions = new KMLServiceOptions();
+    this.appLocation = window.location.href;
   }
 
   ngOnInit(): void {

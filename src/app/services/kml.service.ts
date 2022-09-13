@@ -73,7 +73,7 @@ export class KmlService {
       iframe.setAttribute('style', 'display:none;');
       iframe.onload = () => {
         const node = document.createElement('script');
-        node.src = `https://maps.google.com/maps/api/js?libraries=geometry,drawing$&key=${key}`;
+        node.src = `https://maps.google.com/maps/api/js?libraries=geometry,drawing&key=${key}`;
         node.type = 'text/javascript';
         node.async = false;
         iframe.contentDocument.getElementsByTagName('head')[0].appendChild(node);
