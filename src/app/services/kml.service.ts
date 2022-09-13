@@ -220,20 +220,20 @@ export class KmlService {
     const out = [];
     const planarOrientation = this.csvRecords.getPlanarOrientation(row);
     const linearOrientation = this.csvRecords.getLinearOrientation(row);
-    const line = this.csvRecords.getRealWorldCoordinates(row);
+    const realWorldCoordinates = this.csvRecords.getRealWorldCoordinates(row);
     const latLng = this.csvRecords.getLatLng(row);
-    const lineType = this.csvRecords.getRealWorldCoordinatesType(row);
+    const realWorldCoordinatesType = this.csvRecords.getRealWorldCoordinatesType(row);
 
-    if (!planarOrientation && !linearOrientation && !line) {
-      out.push(`<Point><coordinates>${latLng.lng},${latLng.lat},${this.options.symbolLength / 2}</coordinates></Point>`);
+    if (!planarOrientation && !linearOrientation && realWorldCoordinatesType === 'POINT') {
+      out.push(this.generatePoint(latLng));
     }
 
-    if (line) {
-      if (lineType == 'LINESTRING') {
-        out.push(this.createLinearString(line, 'clampToGround'));
+    if (realWorldCoordinates) {
+      if (realWorldCoordinatesType == 'LINESTRING') {
+        out.push(this.createLinearString(realWorldCoordinates, 'clampToGround'));
       }
-      if (lineType == 'POLYGON') {
-        out.push(this.createPolygonString(line, 'clampToGround'));
+      if (realWorldCoordinatesType == 'POLYGON') {
+        out.push(this.createPolygonString(realWorldCoordinates, 'clampToGround'));
       }
     }
 
@@ -466,6 +466,10 @@ export class KmlService {
         [pm.lng(), pm.lat(), altitude - unit / 2]
       ], this.rowAltitudeMod)
     ];
+  }
+
+  private generatePoint(latLng: LatLngAlt): string {
+    return `<Point><coordinates>${latLng.lng},${latLng.lat},${this.options.symbolLength / 2}</coordinates></Point>`;
   }
 
   // Line
