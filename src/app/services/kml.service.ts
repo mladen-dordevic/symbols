@@ -92,7 +92,6 @@ export class KmlService {
       this.contentWindow = await this.loadGoogleMaps(this.options.googleMapsElevationApi);
     }
     const service = new this.contentWindow.window['google'].maps.ElevationService();
-    console.log(`Getting elevation data for ${missingData.length} points.`);
 
     if (missingData.length < 500) {
       const locations = missingData.map(row => { return { lat: row.lat, lng: row.lng } });
